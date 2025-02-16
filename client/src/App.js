@@ -6,7 +6,7 @@
     • Indsendelse af svar og visning af runderesultater samt opdatering af scores
 */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import styled, { createGlobalStyle, ThemeProvider } from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -211,16 +211,22 @@ function App() {
   const [socket, setSocket] = useState(null);
   const [name, setName] = useState('');
   const [gameCode, setGameCode] = useState('');
-  const [joined, setJoined] = useState(false);
   const [prompt, setPrompt] = useState('');
   const [answer, setAnswer] = useState('');
-  const [message, setMessage] = useState('');
-  const [score, setScore] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [players, setPlayers] = useState({});
   const [gameState, setGameState] = useState('lobby');
   const [winner, setWinner] = useState(null);
   const [timeLeft, setTimeLeft] = useState(15);
+
+  const handleSubmit = useCallback((e) => {
+    e.preventDefault();
+    if (answer.trim() && gameCode && socket) {
+      socket.emit('submitAnswer', { gameCode, answer: answer.trim() });
+      setAnswer('');
+      setIsLoading(true);
+    }
+  }, [answer, gameCode, socket]);
 
   useEffect(() => {
     const newSocket = io('https://helt-blank.onrender.com');
@@ -287,17 +293,7 @@ function App() {
     if (name && gameCode) {
       console.log('Sender joinGame med:', { name, gameCode });
       socket.emit('joinGame', { name, gameCode });
-      setJoined(true);
-      setIsLoading(true);
-    }
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (answer.trim() && gameCode) {
-      console.log('Sender svar:', answer.trim());
-      socket.emit('submitAnswer', { gameCode, answer: answer.trim() });
-      setAnswer(''); // Nulstil inputfelt
+      setGameState('lobby');
       setIsLoading(true);
     }
   };
@@ -319,8 +315,8 @@ function App() {
         >
           <HeaderContent>
             <Logo>Helt Blank</Logo>
-            {joined && (
-              <Score>Score: <span>{score}</span></Score>
+            {gameState === 'lobby' && (
+              <Score>Score: <span>0</span></Score>
             )}
           </HeaderContent>
         </Header>
@@ -342,7 +338,7 @@ function App() {
                 </button>
               </div>
             )}
-            {!joined ? (
+            {gameState === 'lobby' ? (
               <motion.div
                 key="join"
                 initial={{ opacity: 0, y: 20 }}
@@ -409,15 +405,14 @@ function App() {
                   </Button>
                 </form>
 
-                {message && (
-                  <Message
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                  >
-                    {message}
-                  </Message>
-                )}
-
+                <Button
+                  type="button"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleStartGame}
+                >
+                  Start spillet
+                </Button>
                 <PlayersList>
                   {safeObjectValues(players).map((player) => (
                     <PlayerCard 
@@ -432,14 +427,6 @@ function App() {
                     </PlayerCard>
                   ))}
                 </PlayersList>
-                <Button
-                  type="button"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={handleStartGame}
-                >
-                  Start spillet
-                </Button>
               </motion.div>
             )}
           </AnimatePresence>
