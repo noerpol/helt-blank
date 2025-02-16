@@ -23,24 +23,23 @@ const openai = new OpenAI({
 
 // Configure CORS
 app.use(cors({
-  origin: ['http://localhost:3000', 'https://noerpol.github.io'],
-  methods: ['GET', 'POST'],
-  credentials: true
+  origin: true,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 const io = new Server(httpServer, {
   cors: {
-    origin: ['http://localhost:3000', 'https://noerpol.github.io'],
-    methods: ['GET', 'POST'],
-    credentials: true
+    origin: true,
+    methods: ['GET', 'POST', 'OPTIONS'],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization']
   },
+  transports: ['polling'],
   allowEIO3: true,
   pingTimeout: 60000,
-  pingInterval: 25000,
-  transports: ['polling', 'websocket'],
-  allowUpgrades: true,
-  perMessageDeflate: false,
-  maxHttpBufferSize: 1e8
+  pingInterval: 25000
 });
 
 const MIN_PLAYERS = parseInt(process.env.MIN_PLAYERS) || 3;
