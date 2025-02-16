@@ -119,6 +119,12 @@ io.on('connection', (socket) => {
       });
     } else {
       io.to(gameCode).emit('scoreUpdate', session.players);
+      session.currentPrompt = selectNewPrompt(session);
+      console.log(`Sender nyt prompt: ${session.currentPrompt} til spil ${gameCode}`);
+      io.to(gameCode).emit('newPrompt', { 
+        prompt: session.currentPrompt,
+        players: session.players 
+      });
     }
   });
 

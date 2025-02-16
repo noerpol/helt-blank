@@ -208,9 +208,10 @@ function App() {
     const newSocket = io('https://helt-blank.onrender.com');
     setSocket(newSocket);
 
-    newSocket.on('newPrompt', ({ prompt }) => {
-      console.log('Modtog prompt:', prompt);
+    newSocket.on('newPrompt', ({ prompt, players }) => {
       setPrompt(prompt);
+      setPlayers(players);
+      setAnswer('');
       setIsLoading(false);
     });
 
@@ -245,12 +246,12 @@ function App() {
     }
   };
 
-  const submitAnswer = (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    if (answer.trim()) {
+    if (answer.trim() && gameCode) {
       console.log('Sender svar:', answer.trim());
       socket.emit('submitAnswer', { gameCode, answer: answer.trim() });
-      setAnswer('');
+      setAnswer(''); // Nulstil inputfelt
       setIsLoading(true);
     }
   };
@@ -335,7 +336,7 @@ function App() {
                   {isLoading ? "..." : prompt}
                 </PromptDisplay>
 
-                <form onSubmit={submitAnswer}>
+                <form onSubmit={handleSubmit}>
                   <Input
                     type="text"
                     placeholder="Dit svar..."
