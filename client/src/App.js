@@ -202,12 +202,14 @@ const App = () => {
 
     const newSocket = io('https://helt-blank.onrender.com', {
       withCredentials: true,
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
       reconnection: true,
-      reconnectionAttempts: Infinity,
+      reconnectionAttempts: 5,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
-      timeout: 10000
+      timeout: 60000,
+      autoConnect: true,
+      forceNew: true
     });
 
     const handleConnect = () => {
