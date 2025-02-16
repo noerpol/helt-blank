@@ -12,6 +12,15 @@ import styled, { createGlobalStyle, ThemeProvider } from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
 import '@fontsource/roboto';
 
+const safeObjectValues = (obj) => {
+  try {
+    return Object.values(obj || {});
+  } catch (error) {
+    console.error('Fejl i object values:', error);
+    return [];
+  }
+};
+
 const GlobalStyle = createGlobalStyle`
   * {
     margin: 0;
@@ -370,12 +379,12 @@ function App() {
                 )}
 
                 <PlayersList>
-                  {Object.values(players).map((player, index) => (
+                  {safeObjectValues(players).map((player) => (
                     <PlayerCard
-                      key={index}
+                      key={player.id}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
+                      transition={{ delay: 0.1 }}
                     >
                       <h3>{player.name}</h3>
                       <p>{player.score} point</p>
