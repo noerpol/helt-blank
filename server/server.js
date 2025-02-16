@@ -8,181 +8,180 @@
 const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
+const cors = require('cors');
+const path = require('path');
+const fs = require('fs');
+
+// CORS konfiguration
+const corsOptions = {
+  origin: ['https://noerpol.github.io', 'http://localhost:3000'],
+  methods: ['GET', 'POST'],
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
+
+// Socket.io setup med samme CORS options
 const io = require('socket.io')(http, {
-  cors: {
-    origin: ["https://noerpol.github.io", "http://localhost:3000"],
-    methods: ["GET", "POST"],
-    credentials: true
-  },
+  cors: corsOptions,
   transports: ['polling', 'websocket'],
   pingTimeout: 10000,
   pingInterval: 5000
 });
 
-const cors = require('cors');
-app.use(cors({
-  origin: ["https://noerpol.github.io", "http://localhost:3000"],
-  methods: ["GET", "POST"],
-  credentials: true
-}));
-
-const fs = require('fs');
-const path = require('path');
+// Load words
 const words = require('./words.json');
 
+// Game sessions
 const gameSessions = {};
 
-// Hjælpefunktion: Vælg et nyt prompt uden gentagelse i den aktuelle session
-function selectNewPrompt(session) {
-  const availableWords = words.filter(word => !session.usedWords.has(word));
-  if (availableWords.length === 0) {
-    // Nulstil brugte ord, hvis alle ord er blevet vist
-    session.usedWords = new Set();
+// Helper function to select new prompt
+const selectNewPrompt = (gameCode) => {
+  const session = gameSessions[gameCode];
+  if (!session) return '';
+  
+  const unusedWords = words.filter(word => !session.usedWords.has(word));
+  if (unusedWords.length === 0) {
+    session.usedWords.clear();
+    return words[Math.floor(Math.random() * words.length)];
   }
-  let word = availableWords[Math.floor(Math.random() * availableWords.length)];
-  if (!word) {
-    console.log('Advarsel: Ingen ord fundet, anvender standard prompt.');
-    word = 'Standard prompt';
-  }
+  
+  const word = unusedWords[Math.floor(Math.random() * unusedWords.length)];
   session.usedWords.add(word);
   return word;
-}
+};
 
-const MAX_SCORE = 30;
-
-// Fallback til index.html for Single Page Apps
-app.get('*', (req, res) => {
-  res.sendFile('index.html');
-});
-
-app.get('/', (req, res) => {
-  res.send('Backend server for Helt Blank');
-});
-
-// Socket.io-håndtering
+// Socket connection handling
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
   
   socket.on('disconnect', (reason) => {
     console.log('Client disconnected:', socket.id, 'Reason:', reason);
-  });
-  
-  socket.on('error', (error) => {
-    console.error('Socket error:', error);
+    // Cleanup player from all game sessions
+    for (const gameCode in gameSessions) {
+      if (gameSessions[gameCode].players[socket.id]) {
+        delete gameSessions[gameCode].players[socket.id];
+        io.to(gameCode).emit('playerJoined', gameSessions[gameCode].players);
+      }
+    }
   });
 
-  // Spilleren joiner et spil med navn og spilkode
   socket.on('joinGame', ({ gameCode, name }) => {
-    // Opret en ny session hvis den ikke findes
+    console.log('Join game request:', { gameCode, name, socketId: socket.id });
+    
     if (!gameSessions[gameCode]) {
       gameSessions[gameCode] = {
         players: {},
-        currentPrompt: selectNewPrompt(),
+        currentPrompt: selectNewPrompt(gameCode),
         roundActive: false,
         usedWords: new Set()
       };
     }
-    
+
     const session = gameSessions[gameCode];
     
-    // Check om runde er i gang
-    const roundInProgress = Object.values(session.players).some(p => p.answer);
-    
-    if (roundInProgress) {
+    // Check if round is active
+    if (Object.values(session.players).some(p => p.answer !== null)) {
       socket.emit('error', { message: 'Vent venligst til næste runde' });
       return;
     }
-    
-    session.players[socket.id] = { 
-      name, 
-      score: 0, 
-      answer: null,
-      ready: false
+
+    session.players[socket.id] = {
+      name,
+      score: 0,
+      answer: null
     };
-    
+
     socket.join(gameCode);
     
-    // Send current game state
-    socket.emit('newPrompt', { 
-      prompt: session.currentPrompt,
-      players: session.players 
-    });
-    
-    // Notify others
     io.to(gameCode).emit('playerJoined', session.players);
+    socket.emit('newPrompt', {
+      prompt: session.currentPrompt,
+      players: session.players
+    });
   });
 
-  // Håndter indsendte svar fra spillere
   socket.on('submitAnswer', ({ gameCode, answer }) => {
-    console.log(`Modtog svar fra ${socket.id} i spil ${gameCode}: ${answer}`);
     const session = gameSessions[gameCode];
-    if (!session) {
-      console.error(`Spil session ${gameCode} ikke fundet!`);
-      return;
-    }
+    if (!session) return;
 
-    // Gem svaret for denne spiller
     session.players[socket.id].answer = answer;
-    
-    // Tæl hvor mange der har svaret
-    const totalPlayers = Object.keys(session.players).length;
-    const playersAnswered = Object.values(session.players).filter(p => p.answer).length;
-    
-    console.log(`${playersAnswered} ud af ${totalPlayers} spillere har svaret`);
-    
-    if (playersAnswered === totalPlayers) {
-      // Alle har svaret - beregn point
-      const answers = Object.values(session.players).map(p => p.answer);
-      
-      // Tæl forekomster af hvert svar
-      const answerCounts = answers.reduce((acc, curr) => {
-        acc[curr] = (acc[curr] || 0) + 1;
-        return acc;
-      }, {});
-      
-      // Uddel point baseret på matches
-      Object.values(session.players).forEach(player => {
-        const matches = answerCounts[player.answer];
-        if (matches === 2) {
-          player.score += 3; // Perfekt match med én anden
-        } else if (matches > 2) {
-          player.score += 1; // Match med flere
-        }
-        // Nulstil svar til næste runde
-        player.answer = null;
-      });
-      
-      // Check for vinder
-      const winner = Object.values(session.players).find(p => p.score >= MAX_SCORE);
-      
-      if (winner) {
-        io.to(gameCode).emit('gameOver', { winner: winner.name, score: winner.score });
-      } else {
-        // Ny runde - send nyt prompt
-        session.currentPrompt = selectNewPrompt(session);
-        io.to(gameCode).emit('newPrompt', { 
-          prompt: session.currentPrompt,
-          players: session.players 
-        });
-      }
-    } else {
-      // Ikke alle har svaret endnu - opdater bare spillerstatus
-      io.to(gameCode).emit('updatePlayers', session.players);
-    }
-  });
+    io.to(gameCode).emit('playerJoined', session.players);
 
-  // Håndter disconnect, fjern spilleren og opdater de øvrige
-  socket.on('disconnect', () => {
-    for (const gameCode in gameSessions) {
-      if (gameSessions[gameCode].players[socket.id]) {
-        delete gameSessions[gameCode].players[socket.id];
-        io.to(gameCode).emit('updateScores', { players: gameSessions[gameCode].players });
-      }
+    // Check if all players have answered
+    const allAnswered = Object.values(session.players).every(p => p.answer !== null);
+    if (allAnswered) {
+      calculateScores(gameCode);
     }
   });
 });
 
-// Start serveren
+function calculateScores(gameCode) {
+  const session = gameSessions[gameCode];
+  if (!session) return;
+
+  const answers = {};
+  Object.entries(session.players).forEach(([id, player]) => {
+    const answer = player.answer?.toLowerCase().trim();
+    if (!answer) return;
+    
+    if (!answers[answer]) {
+      answers[answer] = [];
+    }
+    answers[answer].push(id);
+  });
+
+  const roundWinners = [];
+  Object.entries(answers).forEach(([answer, players]) => {
+    if (players.length === 2) {
+      players.forEach(id => {
+        session.players[id].score += 3;
+        roundWinners.push(id);
+      });
+    } else if (players.length > 2) {
+      players.forEach(id => {
+        session.players[id].score += 1;
+        roundWinners.push(id);
+      });
+    }
+  });
+
+  // Check for game over
+  const gameWinner = Object.entries(session.players).find(([_, player]) => player.score >= 30);
+  if (gameWinner) {
+    io.to(gameCode).emit('gameOver', {
+      winner: session.players[gameWinner[0]].name,
+      score: session.players[gameWinner[0]].score
+    });
+    delete gameSessions[gameCode];
+    return;
+  }
+
+  // Start new round
+  session.currentPrompt = selectNewPrompt(gameCode);
+  Object.values(session.players).forEach(p => p.answer = null);
+  
+  io.to(gameCode).emit('roundResult', {
+    players: session.players,
+    roundWinners
+  });
+
+  io.to(gameCode).emit('newPrompt', {
+    prompt: session.currentPrompt,
+    players: session.players
+  });
+}
+
+// Fjern de problematiske route handlers
+// app.get('*', (req, res) => {
+//   res.sendFile(path.join(__dirname, 'index.html'));
+// });
+
+// app.get('/', (req, res) => {
+//   res.send('Backend server for Helt Blank');
+// });
+
 const PORT = process.env.PORT || 4000;
 http.listen(PORT, () => {
   console.log(`Server kører på port ${PORT}`);
