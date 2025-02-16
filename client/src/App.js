@@ -162,6 +162,10 @@ const GameStatus = styled.div`
   }
 `;
 
+const ScoreList = styled.div`
+  margin-top: 20px;
+`;
+
 // App component
 const App = () => {
   const [socket, setSocket] = useState(null);
@@ -401,6 +405,24 @@ const App = () => {
                     </PlayerCard>
                   ))}
                 </PlayersList>
+
+                {gameState === 'playing' && (
+                  <ScoreList>
+                    <h3>Round {roundNumber}</h3>
+                    <p>Current prompt: {prompt}</p>
+                    <p>Players in game: {Object.keys(players).length}</p>
+                    {scores.length > 0 && (
+                      <div>
+                        <h4>Scores:</h4>
+                        <ul>
+                          {scores.map((score, index) => (
+                            <li key={index}>{score.name}: {score.score}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </ScoreList>
+                )}
               </motion.div>
             ) : (
               <motion.div
