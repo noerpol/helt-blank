@@ -175,6 +175,7 @@ const App = () => {
   const [gameState, setGameState] = useState('init');
   const [winner, setWinner] = useState(null);
   const [roundNumber, setRoundNumber] = useState(1);
+  const [scores, setScores] = useState({});
 
   const handleSubmit = useCallback((e) => {
     if (e) e.preventDefault();
@@ -246,12 +247,21 @@ const App = () => {
       setIsLoading(false);
     };
 
+    const handleRoundComplete = (data) => {
+      console.log('Round complete:', data);
+      setScores(data.scores);
+      if (data.winner) {
+        setWinner(data.winner);
+      }
+    };
+
     newSocket.on('connect', handleConnect);
     newSocket.on('connect_error', handleConnectError);
     newSocket.on('disconnect', handleDisconnect);
     newSocket.on('newPrompt', handleNewPrompt);
     newSocket.on('playerJoined', handlePlayerJoined);
     newSocket.on('roundResult', handleRoundResult);
+    newSocket.on('roundComplete', handleRoundComplete);
     
     newSocket.on('error', ({ message }) => {
       console.log('Received error:', message);
@@ -275,6 +285,7 @@ const App = () => {
         newSocket.off('newPrompt', handleNewPrompt);
         newSocket.off('playerJoined', handlePlayerJoined);
         newSocket.off('roundResult', handleRoundResult);
+        newSocket.off('roundComplete', handleRoundComplete);
         newSocket.removeAllListeners('error');
         newSocket.removeAllListeners('gameOver');
         newSocket.close();

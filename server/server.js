@@ -175,12 +175,71 @@ async function submitAIAnswers(gameCode, prompt) {
 }
 
 function checkAllAnswered(gameCode) {
+  console.log('Checking if all players answered');
   const game = games.get(gameCode);
-  if (!game) return;
+  if (!game) {
+    console.log('Game not found:', gameCode);
+    return;
+  }
+
+  console.log('Current game state:', {
+    players: Object.keys(game.players).length,
+    answers: Object.values(game.players).filter(p => p.answer !== null).length
+  });
 
   const allAnswered = Object.values(game.players).every(player => player.answer !== null);
+  
   if (allAnswered) {
-    calculateRoundResults(gameCode);
+    console.log('All players have answered, calculating scores');
+    
+    // Group answers
+    const answerGroups = {};
+    Object.values(game.players).forEach(player => {
+      const answer = player.answer.toLowerCase();
+      if (!answerGroups[answer]) {
+        answerGroups[answer] = [];
+      }
+      answerGroups[answer].push(player);
+    });
+
+    console.log('Answer groups:', answerGroups);
+
+    // Award points
+    Object.values(answerGroups).forEach(group => {
+      if (group.length === 2) {
+        group.forEach(player => {
+          player.score += 3;
+          console.log(`Player ${player.name} gets 3 points`);
+        });
+      } else if (group.length > 2) {
+        group.forEach(player => {
+          player.score += 1;
+          console.log(`Player ${player.name} gets 1 point`);
+        });
+      }
+    });
+
+    // Check for winner
+    const winner = Object.values(game.players).find(p => p.score >= 30);
+    
+    // Reset answers and send new prompt
+    Object.values(game.players).forEach(p => p.answer = null);
+    game.currentPrompt = getRandomPrompt();
+    
+    io.to(gameCode).emit('roundComplete', {
+      scores: Object.values(game.players).map(p => ({ name: p.name, score: p.score })),
+      winner: winner ? winner.name : null
+    });
+
+    io.to(gameCode).emit('newPrompt', {
+      prompt: game.currentPrompt,
+      playersCount: Object.keys(game.players).length
+    });
+
+    console.log('New round started with prompt:', game.currentPrompt);
+    
+    // Submit AI answers for the new round
+    submitAIAnswers(gameCode, game.currentPrompt);
   }
 }
 
