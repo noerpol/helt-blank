@@ -51,6 +51,8 @@ function selectNewPrompt(session) {
   return word;
 }
 
+const MAX_SCORE = 30;
+
 // Server de statiske filer – forventer at React-appen er bygget i ../client/build
 app.use(express.static(path.join(__dirname, '../client/build')));
 
@@ -76,7 +78,7 @@ io.on('connection', (socket) => {
     }
     const session = gameSessions[gameCode];
     // Gem spillerinformation
-    session.players[socket.id] = { name, score: 0 };
+    session.players[socket.id] = { name, score: 0, currentAnswer: '' };
     socket.join(gameCode);
     console.log(`${name} joined game ${gameCode}`);
 
@@ -94,43 +96,29 @@ io.on('connection', (socket) => {
   socket.on('submitAnswer', ({ gameCode, answer }) => {
     const session = gameSessions[gameCode];
     if (!session) return;
-    session.answers[socket.id] = answer;
-    console.log(`Svar modtaget fra ${socket.id} i spil ${gameCode}: ${answer}`);
+    const player = session.players[socket.id];
+    const matches = Object.values(session.players).filter(p => 
+      p.id !== socket.id && 
+      p.currentAnswer?.toLowerCase() === answer.toLowerCase()
+    );
 
-    // Når alle spillere har svaret evaluer runden
-    if (Object.keys(session.answers).length === Object.keys(session.players).length) {
-      // Tæl antallet af indsendte svar
-      const answerFrequencies = {};
-      Object.values(session.answers).forEach(ans => {
-        answerFrequencies[ans] = (answerFrequencies[ans] || 0) + 1;
+    let points = 0;
+    if(matches.length === 1) points = 3;
+    else if(matches.length > 1) points = 1;
+
+    player.score += points;
+    player.currentAnswer = answer;
+
+    const winner = Object.values(session.players).find(p => p.score >= MAX_SCORE);
+    
+    if(winner) {
+      io.to(gameCode).emit('gameOver', { winner: winner.name, score: winner.score });
+      Object.values(session.players).forEach(p => {
+        p.score = 0;
+        p.currentAnswer = '';
       });
-
-      // Beregn point for hver spiller
-      const roundResults = {};
-      Object.entries(session.answers).forEach(([sockId, ans]) => {
-        const count = answerFrequencies[ans] || 0;
-        let points = 0;
-        if (count === 2) points = 3;
-        else if (count >= 3) points = 1;
-        session.players[sockId].score += points;
-        roundResults[sockId] = { answer: ans, points };
-      });
-
-      // Informér alle spillere om resultater og opdateret score
-      io.to(gameCode).emit('roundResults', { roundResults, players: session.players });
-
-      // Tjek om nogen har vundet (når score ≥ 25)
-      const winners = Object.values(session.players).filter(p => p.score >= 25);
-      if (winners.length > 0) {
-        io.to(gameCode).emit('gameOver', { winners });
-        // Fjern sessionen når spillet er slut
-        delete gameSessions[gameCode];
-      } else {
-        // Start ny runde: nullstil svar og vælg et nyt prompt
-        session.answers = {};
-        session.currentPrompt = selectNewPrompt(session);
-        io.to(gameCode).emit('newPrompt', { prompt: session.currentPrompt });
-      }
+    } else {
+      io.to(gameCode).emit('scoreUpdate', session.players);
     }
   });
 

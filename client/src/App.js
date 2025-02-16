@@ -178,6 +178,18 @@ const Message = styled(motion.div)`
   margin: 1rem 0;
 `;
 
+const gameOverStyle = {
+  position: 'fixed',
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
+  backgroundColor: 'rgba(0,0,0,0.9)',
+  padding: '2rem',
+  borderRadius: '1rem',
+  textAlign: 'center',
+  zIndex: 1000
+};
+
 function App() {
   const [socket, setSocket] = useState(null);
   const [name, setName] = useState('');
@@ -189,6 +201,8 @@ function App() {
   const [score, setScore] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [players, setPlayers] = useState({});
+  const [gameState, setGameState] = useState('lobby');
+  const [winner, setWinner] = useState(null);
 
   useEffect(() => {
     const newSocket = io('https://helt-blank.onrender.com');
@@ -211,6 +225,11 @@ function App() {
     newSocket.on('message', (msg) => {
       console.log('Modtog besked:', msg);
       setMessage(msg);
+    });
+
+    newSocket.on('gameOver', ({ winner, score }) => {
+      setGameState('ended');
+      setWinner({ name: winner, score });
     });
 
     return () => newSocket.close();
@@ -255,6 +274,21 @@ function App() {
 
         <MainContent>
           <AnimatePresence mode="wait">
+            {gameState === 'ended' && (
+              <div style={gameOverStyle}>
+                <h2>🏆 {winner.name} vandt! 🏆</h2>
+                <p>Med {winner.score} point</p>
+                <button 
+                  onClick={() => {
+                    setGameState('lobby');
+                    setWinner(null);
+                  }}
+                  style={{ marginTop: '1rem' }}
+                >
+                  Spil igen
+                </button>
+              </div>
+            )}
             {!joined ? (
               <motion.div
                 key="join"
