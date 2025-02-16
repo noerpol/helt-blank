@@ -229,8 +229,17 @@ function App() {
   }, [answer, gameCode, socket]);
 
   useEffect(() => {
-    const newSocket = io('https://helt-blank.onrender.com');
-    setSocket(newSocket);
+    const newSocket = io('https://helt-blank.onrender.com', {
+      withCredentials: true,
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000
+    });
+    
+    newSocket.on('connect_error', (error) => {
+      console.error('Connection Error:', error);
+      // Implementer fejlhåndtering her hvis nødvendigt
+    });
 
     newSocket.on('newPrompt', ({ prompt, players }) => {
       setPrompt(prompt);
@@ -256,6 +265,8 @@ function App() {
       setGameState('ended');
       setWinner({ name: winner, score });
     });
+
+    setSocket(newSocket);
 
     return () => newSocket.close();
   }, []);

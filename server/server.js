@@ -6,29 +6,30 @@
 */
 
 const express = require('express');
-const http = require('http');
-const fs = require('fs');
-const { Server } = require('socket.io');
-
 const app = express();
-const server = http.createServer(app);
-
-// Tillad CORS fra alle origins i produktion, eller specifik origin i udvikling
-const allowedOrigins = process.env.NODE_ENV === 'production' 
-  ? '*'
-  : ["http://localhost:3000", "http://localhost:3001"];
-
-const io = new Server(server, {
+const http = require('http').createServer(app);
+const io = require('socket.io')(http, {
   cors: {
-    origin: allowedOrigins,
-    methods: ["GET", "POST"]
+    origin: ["https://noerpol.github.io", "http://localhost:3000"],
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
+const fs = require('fs');
+const path = require('path');
+const { Server } = require('socket.io');
 
-// Læs ordlisten fra words.json
 const wordsFile = 'words.json';
 const { words } = JSON.parse(fs.readFileSync(wordsFile, 'utf8'));
 console.log('Loaded words:', words);
+
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', 'https://noerpol.github.io');
+  res.header('Access-Control-Allow-Methods', 'GET, POST');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  next();
+});
 
 // Spil-sessioner pr. spilkode – holder styr på spillere, svar, brugte ord og aktuelt prompt
 const gameSessions = {};
@@ -178,6 +179,6 @@ io.on('connection', (socket) => {
 
 // Start serveren
 const PORT = process.env.PORT || 4000;
-server.listen(PORT, () => {
+http.listen(PORT, () => {
   console.log(`Server kører på port ${PORT}`);
 });
