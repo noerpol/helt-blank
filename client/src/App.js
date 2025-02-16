@@ -286,25 +286,7 @@ const App = () => {
         newSocket.close();
       }
     };
-  }, [socket?.connected]);
-
-  useEffect(() => {
-    let timer = null;
-    
-    if (prompt && !winner && gameState === 'playing') {
-      timer = setInterval(() => {
-        if (socket?.id && players[socket.id]?.answer === null) {
-          handleSubmit();
-        }
-      }, 15000);
-    }
-    
-    return () => {
-      if (timer) {
-        clearInterval(timer);
-      }
-    };
-  }, [socket?.id, prompt, winner, players, handleSubmit, gameState]);
+  }, [socket?.connected, gameState]);
 
   return (
     <ThemeProvider theme={theme}>
