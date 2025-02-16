@@ -111,10 +111,49 @@ const PlayersList = styled.div`
 `;
 
 const PlayerCard = styled(motion.div)`
-  padding: 10px;
+  padding: 15px;
   margin-bottom: 10px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  
+  ${props => props.hasAnswered && `
+    border: 1px solid ${props.theme.colors.primary};
+  `}
+`;
+
+const PlayerInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+`;
+
+const PlayerName = styled.span`
+  font-weight: bold;
+`;
+
+const PlayerScore = styled.span`
+  color: ${props => props.theme.colors.secondary};
+`;
+
+const PlayerAnswer = styled.span`
+  color: ${props => props.theme.colors.primary};
+  font-style: italic;
+`;
+
+const GameStatus = styled.div`
+  text-align: center;
+  margin-bottom: 20px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  
+  span {
+    color: ${props => props.theme.colors.secondary};
+    font-weight: bold;
+  }
 `;
 
 const Score = styled.div`
@@ -139,6 +178,7 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [gameState, setGameState] = useState('init');
   const [winner, setWinner] = useState(null);
+  const [roundNumber, setRoundNumber] = useState(1);
 
   const handleSubmit = useCallback((e) => {
     if (e) e.preventDefault();
@@ -196,6 +236,7 @@ const App = () => {
       setIsLoading(false);
       setMessage('');
       setGameState('playing');
+      setRoundNumber(prev => prev + 1);
     };
 
     const handlePlayerJoined = (players) => {
@@ -328,6 +369,10 @@ const App = () => {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
               >
+                <GameStatus>
+                  Runde <span>{roundNumber}</span>
+                </GameStatus>
+                
                 <PromptDisplay
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -357,11 +402,19 @@ const App = () => {
                   {Object.entries(players).map(([id, player]) => (
                     <PlayerCard 
                       key={id}
+                      hasAnswered={player.answer !== null}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                     >
-                      {player.name}: {player.score} point
-                      {player.answer !== null && ' (har svaret)'}
+                      <PlayerInfo>
+                        <PlayerName>{player.name}</PlayerName>
+                        <PlayerScore>{player.score} point</PlayerScore>
+                        {player.answer !== null && (
+                          <PlayerAnswer>
+                            {gameState === 'roundEnd' ? player.answer : 'Har svaret'}
+                          </PlayerAnswer>
+                        )}
+                      </PlayerInfo>
                     </PlayerCard>
                   ))}
                 </PlayersList>
