@@ -63,13 +63,17 @@ async function generateAIResponse(prompt) {
                 "2. Vælge et almindeligt og forståeligt ord\n" +
                 "3. Undgå fremmedord og meget tekniske termer\n" +
                 "4. Tænke kreativt men realistisk\n" +
-                "5. Kun svare med ét ord"
+                "5. Kun svare med ét ord\n" +
+                "6. Være original og undgå at gentage ord\n" +
+                `7. Din spillerstil er: ${Math.random() > 0.5 ? 
+                  'Kreativ og poetisk - vælg ord der er stemningsfulde og beskrivende' : 
+                  'Praktisk og konkret - vælg almindelige hverdagsord'}`
       }, {
         role: "user",
-        content: `Giv mig et dansk ord der starter med "${prompt}". VIGTIGT: Svar KUN med ordet, ingen forklaring eller punktummer.`
+        content: `Giv mig et dansk ord der starter med "${prompt}". VIGTIGT: Svar KUN med ordet, ingen forklaring eller punktummer. Vær kreativ og find på et unikt ord.`
       }],
       max_tokens: 10,
-      temperature: 0.7
+      temperature: 0.9
     });
     
     return completion.choices[0].message.content.trim().split(' ')[0];
@@ -160,10 +164,25 @@ async function submitAIAnswers(gameCode, prompt) {
 }
 
 function getRandomPrompt() {
-  const categories = Object.keys(words);
-  const category = categories[Math.floor(Math.random() * categories.length)];
-  const word = words[category][Math.floor(Math.random() * words[category].length)];
-  return word.substring(0, 2);
+  // Liste over gyldige danske præfikser
+  const validPrefixes = [
+    'ba', 'be', 'bi', 'bo', 'br', 
+    'da', 'de', 'di', 'do', 'dr',
+    'fa', 'fe', 'fi', 'fo', 'fr',
+    'ga', 'ge', 'gi', 'go', 'gr',
+    'ha', 'he', 'hi', 'ho', 'hu',
+    'ka', 'ke', 'ki', 'ko', 'kr',
+    'la', 'le', 'li', 'lo', 'ly',
+    'ma', 'me', 'mi', 'mo', 'mu',
+    'na', 'ne', 'ni', 'no', 'ny',
+    'pa', 'pe', 'pi', 'po', 'pr',
+    'ra', 're', 'ri', 'ro', 'ru',
+    'sa', 'se', 'si', 'so', 'sp', 'st',
+    'ta', 'te', 'ti', 'to', 'tr',
+    'va', 've', 'vi', 'vo', 'vr'
+  ];
+  
+  return validPrefixes[Math.floor(Math.random() * validPrefixes.length)];
 }
 
 function checkAllAnswered(gameCode) {
