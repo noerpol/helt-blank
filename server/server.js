@@ -60,8 +60,15 @@ function getRandomPrompt() {
 }
 
 // Generate AI response using OpenAI
-async function generateAIResponse(prompt) {
+async function generateAIResponse(prompt, aiPlayer) {
   try {
+    // Each AI has its own personality and temperature
+    const personality = aiPlayer.name === 'Robot Ross' ? 
+      'Kreativ og uventet - vælg overraskende, men stadig relevante associationer' :
+      'Strategisk og eftertænksom - vælg associationer der er gennemtænkte og som andre måske også vil vælge';
+    
+    const temperature = aiPlayer.name === 'Robot Ross' ? 1.2 : 0.8;
+
     const completion = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [{
@@ -72,15 +79,13 @@ async function generateAIResponse(prompt) {
                 "3. Tænke på hvad andre spillere sandsynligvis ville associere med ordet\n" +
                 "4. Vælge almindelige og letforståelige associationer\n" +
                 "5. Målet er at matche præcis én anden spillers svar\n" +
-                `6. Din spillerstil er: ${Math.random() > 0.5 ? 
-                  'Kreativ - vælg mindre oplagte, men stadig forståelige associationer som 1-2 andre måske vil vælge' : 
-                  'Strategisk - vælg associationer der er lidt uventede, men som en anden spiller måske også vil tænke på'}`
+                `6. Din spillerstil er: ${personality}`
       }, {
         role: "user",
-        content: `Du får ordet "${prompt}". Hvilket ord associerer du med det? VIGTIGT: Svar KUN med ét ord, ingen forklaring. Vær kreativ og undgå det mest oplagte svar.`
+        content: `Du får ordet "${prompt}". Hvilket ord associerer du med det? VIGTIGT: Svar KUN med ét ord, ingen forklaring.`
       }],
       max_tokens: 10,
-      temperature: 1.0
+      temperature: temperature
     });
     
     return completion.choices[0].message.content.trim().split(' ')[0];
@@ -159,10 +164,14 @@ async function submitAIAnswers(gameCode, prompt) {
   const ais = aiPlayers.get(gameCode);
   if (!ais) return;
 
+  // Submit answers with a small delay between each AI to make it more natural
   for (const ai of ais) {
     if (!games.get(gameCode)) return; // Game might have ended
     
-    const answer = await generateAIResponse(prompt);
+    // Random delay between 1-3 seconds
+    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
+    
+    const answer = await generateAIResponse(prompt, ai);
     if (answer) {
       const game = games.get(gameCode);
       game.players[ai.id].answer = answer;
