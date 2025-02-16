@@ -320,7 +320,7 @@ function calculateRoundResults(gameCode) {
     }
   });
 
-  // Check for winner
+  // Check for winner (25 points)
   const winner = Object.values(game.players).find(p => p.score >= 25);
 
   // Send results to all players
@@ -329,19 +329,26 @@ function calculateRoundResults(gameCode) {
       Object.values(game.players).map(p => [p.name, p.score])
     ),
     pointChanges,
-    players: game.players
+    answers: Object.fromEntries(
+      Object.values(game.players).map(p => [p.name, p.answer])
+    )
   });
 
   if (winner) {
     // Game over
     io.to(gameCode).emit('gameOver', {
       winner: winner.name,
-      score: winner.score,
-      players: game.players
+      score: winner.score
     });
     games.delete(gameCode);
     aiPlayers.delete(gameCode);
   } else {
+    // Add used words to set
+    Object.values(game.players).forEach(player => {
+      if (player.answer) {
+        game.usedWords.add(player.answer.toLowerCase());
+      }
+    });
     // Start new round
     resetRound(gameCode);
   }
