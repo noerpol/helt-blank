@@ -1,26 +1,20 @@
-/*
-  App.js – Hovedkomponenten for "Helt Blank"
-  Denne komponent håndterer:
-    • Input-formular til indtastning af navn og spilkode for at join'e spillet
-    • Visning af det aktuelle prompt
-    • Indsendelse af svar og visning af runderesultater samt opdatering af scores
-*/
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { io } from 'socket.io-client';
-import styled, { createGlobalStyle, ThemeProvider } from 'styled-components';
+import styled, { ThemeProvider, createGlobalStyle } from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
-import '@fontsource/roboto';
 
-const safeObjectValues = (obj) => {
-  try {
-    return Object.values(obj || {});
-  } catch (error) {
-    console.error('Fejl i object values:', error);
-    return [];
+// Theme configuration
+const theme = {
+  colors: {
+    primary: '#0A84FF',
+    secondary: '#64D2FF',
+    background: '#000000',
+    text: '#ffffff',
+    error: '#FF453A'
   }
 };
 
+// Styled components
 const GlobalStyle = createGlobalStyle`
   * {
     margin: 0;
@@ -29,205 +23,140 @@ const GlobalStyle = createGlobalStyle`
   }
 
   body {
-    margin: 0;
-    padding: 0;
-    background: #000000;
-    color: #ffffff;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  ::placeholder {
-    color: rgba(255, 255, 255, 0.3);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+      Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    background-color: ${props => props.theme.colors.background};
+    color: ${props => props.theme.colors.text};
   }
 `;
-
-const theme = {
-  colors: {
-    background: '#000000',
-    surface: '#1c1c1e',
-    primary: '#0A84FF',
-    secondary: '#64D2FF',
-    text: '#ffffff',
-    textSecondary: 'rgba(255, 255, 255, 0.6)',
-    error: '#FF453A'
-  }
-};
 
 const Container = styled.div`
   min-height: 100vh;
   background: ${props => props.theme.colors.background};
-  display: flex;
-  flex-direction: column;
+  padding: 20px;
 `;
 
 const Header = styled(motion.header)`
-  padding: 2rem;
-  position: fixed;
-  width: 100%;
-  top: 0;
-  z-index: 1000;
-  background: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 0.5px solid rgba(255, 255, 255, 0.1);
+  padding: 20px;
+  margin-bottom: 40px;
 `;
 
 const HeaderContent = styled.div`
-  max-width: 1200px;
-  margin: 0 auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
 `;
 
 const Logo = styled.h1`
-  font-size: 1.5rem;
-  font-weight: 700;
-  background: linear-gradient(to right, ${props => props.theme.colors.primary}, ${props => props.theme.colors.secondary});
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-`;
-
-const Score = styled.div`
-  font-size: 1.2rem;
-  color: ${props => props.theme.colors.textSecondary};
-  span {
-    color: ${props => props.theme.colors.primary};
-    font-weight: 600;
-  }
+  color: ${props => props.theme.colors.primary};
+  margin: 0;
 `;
 
 const Main = styled.main`
-  max-width: 1200px;
-  margin: 7rem auto 2rem;
-  padding: 0 2rem;
-  width: 100%;
-  flex: 1;
+  max-width: 600px;
+  margin: 0 auto;
+`;
+
+const Message = styled.div`
+  padding: 10px;
+  margin-bottom: 20px;
+  background: ${props => props.theme.colors.error};
+  color: white;
+  border-radius: 4px;
+  text-align: center;
 `;
 
 const Input = styled.input`
   width: 100%;
-  padding: 1rem 0;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  color: ${props => props.theme.colors.text};
-  font-size: 2rem;
-  margin: 1rem 0;
-  transition: all 0.3s ease;
-
+  padding: 10px;
+  margin-bottom: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  color: white;
+  
   &:focus {
     outline: none;
-    border-bottom-color: ${props => props.theme.colors.primary};
-  }
-
-  &:disabled {
-    opacity: 0.5;
+    border-color: ${props => props.theme.colors.primary};
   }
 `;
 
 const Button = styled(motion.button)`
+  width: 100%;
+  padding: 10px;
   background: ${props => props.theme.colors.primary};
-  color: #ffffff;
+  color: white;
   border: none;
-  padding: 1rem 2rem;
-  font-size: 1rem;
-  border-radius: 8px;
+  border-radius: 4px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  opacity: ${props => props.disabled ? 0.5 : 1};
-
+  
   &:disabled {
+    opacity: 0.5;
     cursor: not-allowed;
   }
 `;
 
 const PromptDisplay = styled(motion.div)`
-  font-size: 3rem;
-  font-weight: 700;
-  margin: 2rem 0;
+  font-size: 24px;
+  color: ${props => props.theme.colors.primary};
   text-align: center;
-  background: linear-gradient(to right, ${props => props.theme.colors.primary}, ${props => props.theme.colors.secondary});
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  line-height: 1.2;
+  margin: 20px 0;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
 `;
 
-const PlayersList = styled(motion.div)`
-  margin-top: 3rem;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1rem;
+const PlayersList = styled.div`
+  margin-top: 20px;
 `;
 
 const PlayerCard = styled(motion.div)`
-  background: ${props => props.hasAnswered ? '#e8f5e9' : 'rgba(255, 255, 255, 0.05)'};
-  padding: 1rem;
-  border-radius: 12px;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 10px;
+  margin-bottom: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+`;
 
-  h3 {
-    color: ${props => props.theme.colors.text};
-    margin-bottom: 0.5rem;
+const Score = styled.div`
+  color: ${props => props.theme.colors.secondary};
+  font-size: 18px;
+  
+  span {
+    font-weight: bold;
   }
-
-  p {
-    color: ${props => props.theme.colors.primary};
-  }
 `;
 
-const Message = styled(motion.div)`
-  color: ${props => props.theme.colors.textSecondary};
-  text-align: center;
-  margin: 1rem 0;
-`;
-
-const Timer = styled.div`
-  font-size: 1.5rem;
-  font-weight: bold;
-  text-align: center;
-  margin: 1rem 0;
-  color: ${props => props.timeLeft <= 5 ? 'red' : 'black'};
-`;
-
-const gameOverStyle = {
-  position: 'fixed',
-  top: '50%',
-  left: '50%',
-  transform: 'translate(-50%, -50%)',
-  backgroundColor: 'rgba(0,0,0,0.9)',
-  padding: '2rem',
-  borderRadius: '1rem',
-  textAlign: 'center',
-  zIndex: 1000
-};
-
-function App() {
+// App component
+const App = () => {
   const [socket, setSocket] = useState(null);
-  const [name, setName] = useState('');
   const [gameCode, setGameCode] = useState('');
+  const [name, setName] = useState('');
+  const [players, setPlayers] = useState({});
   const [prompt, setPrompt] = useState('');
   const [answer, setAnswer] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [players, setPlayers] = useState({});
-  const [gameState, setGameState] = useState('init'); // 'init', 'playing', 'ended'
-  const [winner, setWinner] = useState(null);
   const [score, setScore] = useState(0);
   const [message, setMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [gameState, setGameState] = useState('init');
+  const [winner, setWinner] = useState(null);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleSubmit = useCallback((e) => {
+    if (e) e.preventDefault();
     if (answer.trim() && gameCode && socket) {
       socket.emit('submitAnswer', { gameCode, answer: answer.trim() });
       setAnswer('');
       setIsLoading(true);
     }
-  };
+  }, [answer, gameCode, socket]);
+
+  const handleJoinGame = useCallback((e) => {
+    e.preventDefault();
+    if (name && gameCode) {
+      console.log('Sender joinGame med:', { name, gameCode });
+      socket.emit('joinGame', { gameCode, name });
+      setIsLoading(true);
+    }
+  }, [name, gameCode, socket]);
 
   useEffect(() => {
     if (socket?.connected) {
@@ -237,14 +166,14 @@ function App() {
 
     const newSocket = io('https://helt-blank.onrender.com', {
       withCredentials: true,
-      transports: ['polling', 'websocket'],
+      transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       timeout: 10000
     });
-    
+
     const handleConnect = () => {
       console.log('Connected to server');
       setMessage('');
@@ -284,7 +213,6 @@ function App() {
       }
     };
 
-    // Tilføj event listeners
     newSocket.on('connect', handleConnect);
     newSocket.on('connect_error', handleConnectError);
     newSocket.on('disconnect', handleDisconnect);
@@ -325,7 +253,6 @@ function App() {
     let timer = null;
     
     if (prompt && !winner && gameState === 'playing') {
-      // Start timer når en ny runde begynder
       timer = setInterval(() => {
         if (socket?.id && players[socket.id]?.answer === null) {
           handleSubmit();
@@ -339,16 +266,6 @@ function App() {
       }
     };
   }, [prompt, winner, gameState, socket?.id, players, handleSubmit]);
-
-  const handleJoinGame = (e) => {
-    e.preventDefault();
-    if (name && gameCode) {
-      console.log('Sender joinGame med:', { name, gameCode });
-      socket.emit('joinGame', { name, gameCode });
-      setGameState('lobby');
-      setIsLoading(true);
-    }
-  };
 
   return (
     <ThemeProvider theme={theme}>
@@ -472,6 +389,6 @@ function App() {
       </Container>
     </ThemeProvider>
   );
-}
+};
 
 export default App;
