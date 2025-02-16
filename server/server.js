@@ -77,7 +77,7 @@ io.on('connection', (socket) => {
     }
     const session = gameSessions[gameCode];
     // Gem spillerinformation
-    session.players[socket.id] = { name, score: 0, currentAnswer: '' };
+    session.players[socket.id] = { name, score: 0, answer: null };
     socket.join(gameCode);
     console.log(`${name} joined game ${gameCode}`);
 
@@ -93,37 +93,60 @@ io.on('connection', (socket) => {
 
   // Håndter indsendte svar fra spillere
   socket.on('submitAnswer', ({ gameCode, answer }) => {
+    console.log(`Modtog svar fra ${socket.id} i spil ${gameCode}: ${answer}`);
     const session = gameSessions[gameCode];
-    if (!session) return;
-    const player = session.players[socket.id];
-    const matches = Object.values(session.players).filter(p => 
-      p.id !== socket.id && 
-      p.currentAnswer?.toLowerCase() === answer.toLowerCase()
-    );
+    if (!session) {
+      console.error(`Spil session ${gameCode} ikke fundet!`);
+      return;
+    }
 
-    let points = 0;
-    if(matches.length === 1) points = 3;
-    else if(matches.length > 1) points = 1;
-
-    player.score += points;
-    player.currentAnswer = answer;
-
-    const winner = Object.values(session.players).find(p => p.score >= MAX_SCORE);
+    // Gem svaret for denne spiller
+    session.players[socket.id].answer = answer;
     
-    if(winner) {
-      io.to(gameCode).emit('gameOver', { winner: winner.name, score: winner.score });
-      Object.values(session.players).forEach(p => {
-        p.score = 0;
-        p.currentAnswer = '';
+    // Tæl hvor mange der har svaret
+    const totalPlayers = Object.keys(session.players).length;
+    const playersAnswered = Object.values(session.players).filter(p => p.answer).length;
+    
+    console.log(`${playersAnswered} ud af ${totalPlayers} spillere har svaret`);
+    
+    if (playersAnswered === totalPlayers) {
+      // Alle har svaret - beregn point
+      const answers = Object.values(session.players).map(p => p.answer);
+      
+      // Tæl forekomster af hvert svar
+      const answerCounts = answers.reduce((acc, curr) => {
+        acc[curr] = (acc[curr] || 0) + 1;
+        return acc;
+      }, {});
+      
+      // Uddel point baseret på matches
+      Object.values(session.players).forEach(player => {
+        const matches = answerCounts[player.answer];
+        if (matches === 2) {
+          player.score += 3; // Perfekt match med én anden
+        } else if (matches > 2) {
+          player.score += 1; // Match med flere
+        }
+        // Nulstil svar til næste runde
+        player.answer = null;
       });
+      
+      // Check for vinder
+      const winner = Object.values(session.players).find(p => p.score >= MAX_SCORE);
+      
+      if (winner) {
+        io.to(gameCode).emit('gameOver', { winner: winner.name, score: winner.score });
+      } else {
+        // Ny runde - send nyt prompt
+        session.currentPrompt = selectNewPrompt(session);
+        io.to(gameCode).emit('newPrompt', { 
+          prompt: session.currentPrompt,
+          players: session.players 
+        });
+      }
     } else {
-      io.to(gameCode).emit('scoreUpdate', session.players);
-      session.currentPrompt = selectNewPrompt(session);
-      console.log(`Sender nyt prompt: ${session.currentPrompt} til spil ${gameCode}`);
-      io.to(gameCode).emit('newPrompt', { 
-        prompt: session.currentPrompt,
-        players: session.players 
-      });
+      // Ikke alle har svaret endnu - opdater bare spillerstatus
+      io.to(gameCode).emit('updatePlayers', session.players);
     }
   });
 
