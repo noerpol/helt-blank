@@ -181,38 +181,25 @@ const App = () => {
   const [roundNumber, setRoundNumber] = useState(1);
   const [scores, setScores] = useState({});
 
-  const handleSubmit = useCallback((e) => {
-    if (e) e.preventDefault();
-    if (!answer.trim() || !gameCode || !socket || !name) return;
-
-    console.log('Submitting answer:', { gameCode, answer: answer.trim(), name });
-    socket.emit('submitAnswer', {
-      gameCode,
-      answer: answer.trim(),
-      name
-    });
-    setAnswer('');
-    setIsLoading(true);
-  }, [answer, gameCode, socket, name]);
-
-  const handleJoinGame = useCallback((e) => {
-    e.preventDefault();
-    if (name && gameCode) {
-      console.log('Sender joinGame med:', { name, gameCode });
-      socket.emit('joinGame', { gameCode, name });
-      setIsLoading(true);
-    }
-  }, [name, gameCode, socket]);
-
   useEffect(() => {
-    if (!socket) return;
+    if (!socket) {
+      console.log('Initializing new socket connection');
+      const newSocket = io('https://helt-blank.onrender.com', {
+        transports: ['polling'],
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        reconnectionAttempts: 5
+      });
+      setSocket(newSocket);
+      return;
+    }
 
     const handleConnect = () => {
       console.log('Connected to server');
       setMessage('');
       
       // Rejoin game if we were in one
-      if (gameCode && name) {
+      if (gameCode && name && gameState !== 'init') {
         console.log('Rejoining game after reconnect:', { gameCode, name });
         socket.emit('joinGame', { gameCode, name });
       }
@@ -221,46 +208,40 @@ const App = () => {
     const handleConnectError = (error) => {
       console.log('Connection Error:', error);
       setMessage('Could not connect to server');
+      setIsLoading(false);
     };
 
     const handleDisconnect = (reason) => {
       console.log('Disconnected:', reason);
       setMessage('Lost connection - trying to reconnect...');
+      setIsLoading(false);
     };
 
     const handleNewPrompt = ({ prompt, players }) => {
-      console.log('Received new prompt:', { prompt, playersCount: Object.keys(players).length });
+      console.log('New prompt:', { prompt, players });
       setPrompt(prompt);
       setPlayers(players);
       setIsLoading(false);
-      setMessage('');
-      
-      // Kun øg rundenummer hvis vi allerede er i gang med spillet
-      if (gameState === 'playing') {
-        setRoundNumber(prev => prev + 1);
-      } else {
-        setGameState('playing');
-      }
+      setGameState('playing');
     };
 
-    const handlePlayerJoined = (players) => {
-      console.log('Players updated:', Object.keys(players).length);
+    const handlePlayerJoined = ({ players }) => {
+      console.log('Player joined:', players);
       setPlayers(players);
       setIsLoading(false);
     };
 
-    const handleRoundResult = ({ players, roundWinners }) => {
-      console.log('Round result:', { playersCount: Object.keys(players).length, winnersCount: roundWinners.length });
-      setPlayers(players);
-      setIsLoading(false);
+    const handleRoundResult = ({ scores }) => {
+      console.log('Round result:', scores);
+      setScores(scores);
     };
 
-    const handleRoundComplete = (data) => {
-      console.log('Round complete:', data);
-      setScores(data.scores);
-      if (data.winner) {
-        setWinner(data.winner);
-      }
+    const handleRoundComplete = ({ prompt, players }) => {
+      setRoundNumber(prev => prev + 1);
+      setPrompt(prompt);
+      setPlayers(players);
+      setAnswer('');
+      setIsLoading(false);
     };
 
     socket.on('connect', handleConnect);
@@ -281,36 +262,44 @@ const App = () => {
       console.log('Game over:', { winner, score });
       setGameState('ended');
       setWinner({ name: winner, score });
+      setIsLoading(false);
     });
 
     return () => {
-      if (socket) {
-        socket.off('connect', handleConnect);
-        socket.off('connect_error', handleConnectError);
-        socket.off('disconnect', handleDisconnect);
-        socket.off('newPrompt', handleNewPrompt);
-        socket.off('playerJoined', handlePlayerJoined);
-        socket.off('roundResult', handleRoundResult);
-        socket.off('roundComplete', handleRoundComplete);
-        socket.removeAllListeners('error');
-        socket.removeAllListeners('gameOver');
-        socket.close();
-      }
+      socket.off('connect', handleConnect);
+      socket.off('connect_error', handleConnectError);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('newPrompt', handleNewPrompt);
+      socket.off('playerJoined', handlePlayerJoined);
+      socket.off('roundResult', handleRoundResult);
+      socket.off('roundComplete', handleRoundComplete);
+      socket.off('error');
+      socket.off('gameOver');
     };
   }, [socket, gameCode, name, gameState]);
 
-  useEffect(() => {
-    if (socket?.connected) {
-      console.log('Already connected, skipping socket initialization');
-      return;
-    }
+  const handleSubmit = useCallback((e) => {
+    if (e) e.preventDefault();
+    if (!answer.trim() || !gameCode || !socket || !name) return;
 
-    const newSocket = io('https://helt-blank.onrender.com', {
-      transports: ['polling']
+    console.log('Submitting answer:', { gameCode, answer: answer.trim(), name });
+    socket.emit('submitAnswer', {
+      gameCode,
+      answer: answer.trim(),
+      name
     });
+    setAnswer('');
+    setIsLoading(true);
+  }, [answer, gameCode, socket, name]);
 
-    setSocket(newSocket);
-  }, [socket?.connected]);
+  const handleJoinGame = useCallback((e) => {
+    e.preventDefault();
+    if (!socket || !name || !gameCode) return;
+    
+    console.log('Joining game:', { gameCode, name });
+    setIsLoading(true);
+    socket.emit('joinGame', { gameCode, name });
+  }, [socket, name, gameCode]);
 
   return (
     <ThemeProvider theme={theme}>
