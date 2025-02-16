@@ -215,9 +215,8 @@ function App() {
   const [answer, setAnswer] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [players, setPlayers] = useState({});
-  const [gameState, setGameState] = useState('lobby');
+  const [gameState, setGameState] = useState('init'); // 'init', 'playing', 'ended'
   const [winner, setWinner] = useState(null);
-  const [timeLeft, setTimeLeft] = useState(15);
   const [score, setScore] = useState(0);
   const [message, setMessage] = useState('');
 
@@ -350,19 +349,13 @@ function App() {
     };
   }, [prompt, winner, gameState, socket?.id, players, handleSubmit]);
 
-  const joinGame = (e) => {
+  const handleJoinGame = (e) => {
     e.preventDefault();
     if (name && gameCode) {
       console.log('Sender joinGame med:', { name, gameCode });
       socket.emit('joinGame', { name, gameCode });
       setGameState('lobby');
       setIsLoading(true);
-    }
-  };
-
-  const handleStartGame = () => {
-    if (players && Object.values(players || {}).every(player => player?.ready)) {
-      socket.emit('startGame', { gameCode });
     }
   };
 
@@ -373,96 +366,71 @@ function App() {
         <Header
           initial={{ y: -100 }}
           animate={{ y: 0 }}
-          transition={{ type: "spring", stiffness: 100 }}
         >
           <HeaderContent>
             <Logo>Helt Blank</Logo>
-            {gameState === 'lobby' && (
-              <Score>Score: <span>{score}</span></Score>
-            )}
+            <Score>Score: <span>{score}</span></Score>
           </HeaderContent>
         </Header>
 
         <Main>
           {message && (
-            <Message
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-            >
+            <Message>
               {message}
             </Message>
           )}
 
           <AnimatePresence mode="wait">
-            {gameState === 'ended' && (
-              <div style={gameOverStyle}>
-                <h2> {winner.name} vandt! </h2>
-                <p>Med {winner.score} point</p>
-                <button 
-                  onClick={() => {
-                    setGameState('lobby');
-                    setWinner(null);
-                  }}
-                  style={{ marginTop: '1rem' }}
-                >
-                  Spil igen
-                </button>
-              </div>
-            )}
-            {gameState === 'lobby' ? (
+            {gameState === 'init' ? (
               <motion.div
                 key="join"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
               >
-                <form onSubmit={joinGame}>
+                <form onSubmit={handleJoinGame}>
                   <Input
                     type="text"
                     placeholder="Dit navn"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    required
+                    disabled={isLoading}
                   />
                   <Input
                     type="text"
                     placeholder="Spilkode"
                     value={gameCode}
                     onChange={(e) => setGameCode(e.target.value)}
-                    required
+                    disabled={isLoading}
                   />
                   <Button
                     type="submit"
+                    disabled={isLoading}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    Start spil
+                    Join spil
                   </Button>
                 </form>
               </motion.div>
-            ) : (
+            ) : gameState === 'playing' ? (
               <motion.div
                 key="game"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
               >
-                <Timer timeLeft={timeLeft}>
-                  {timeLeft} sekunder
-                </Timer>
                 <PromptDisplay
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5 }}
                 >
-                  {isLoading ? "..." : prompt}
+                  {prompt || 'Venter på prompt...'}
                 </PromptDisplay>
 
                 <form onSubmit={handleSubmit}>
                   <Input
                     type="text"
-                    placeholder="Dit svar..."
+                    placeholder="Dit svar"
                     value={answer}
                     onChange={(e) => setAnswer(e.target.value)}
                     disabled={isLoading}
@@ -473,32 +441,39 @@ function App() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    Send
+                    Send svar
                   </Button>
                 </form>
 
-                <Button
-                  type="button"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={handleStartGame}
-                >
-                  Start spillet
-                </Button>
                 <PlayersList>
-                  {safeObjectValues(players).map((player) => (
+                  {Object.entries(players).map(([id, player]) => (
                     <PlayerCard 
-                      key={player.id}
-                      hasAnswered={Boolean(player.answer)}
+                      key={id}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.1 }}
                     >
-                      <h3>{player.name}</h3>
-                      <p>{player.score} point</p>
+                      {player.name}: {player.score} point
+                      {player.answer !== null && ' (har svaret)'}
                     </PlayerCard>
                   ))}
                 </PlayersList>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="gameover"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                <h2>{winner?.name} vandt!</h2>
+                <p>Med {winner?.score} point</p>
+                <Button
+                  onClick={() => window.location.reload()}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  Spil igen
+                </Button>
               </motion.div>
             )}
           </AnimatePresence>

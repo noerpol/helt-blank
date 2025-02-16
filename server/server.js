@@ -45,21 +45,32 @@ const words = require('./words.json');
 // Game sessions
 const gameSessions = {};
 
-// Helper function to select new prompt
-const selectNewPrompt = (gameCode) => {
+// Hjælpefunktioner
+function selectNewPrompt(gameCode) {
+  console.log('Selecting new prompt for game:', gameCode);
   const session = gameSessions[gameCode];
-  if (!session) return '';
+  const allWords = words.words;
+  console.log('Available words:', allWords.length);
   
-  const unusedWords = words.filter(word => !session.usedWords.has(word));
-  if (unusedWords.length === 0) {
+  // Filter ud ord der er blevet brugt
+  const availableWords = allWords.filter(word => !session?.usedWords.has(word));
+  console.log('Filtered words:', availableWords.length);
+  
+  if (availableWords.length === 0) {
+    console.log('No more words available, resetting used words');
     session.usedWords.clear();
-    return words[Math.floor(Math.random() * words.length)];
+    return allWords[Math.floor(Math.random() * allWords.length)];
   }
   
-  const word = unusedWords[Math.floor(Math.random() * unusedWords.length)];
-  session.usedWords.add(word);
-  return word;
-};
+  const selectedWord = availableWords[Math.floor(Math.random() * availableWords.length)];
+  console.log('Selected word:', selectedWord);
+  
+  if (session) {
+    session.usedWords.add(selectedWord);
+  }
+  
+  return selectedWord;
+}
 
 // Socket connection handling
 io.on('connection', (socket) => {
