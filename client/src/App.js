@@ -217,29 +217,38 @@ const App = () => {
       setIsLoading(false);
     };
 
-    const handleNewPrompt = ({ prompt, players }) => {
-      console.log('New prompt:', { prompt, players });
-      setPrompt(prompt);
-      setPlayers(players);
+    const handleNewPrompt = (data) => {
+      console.log('New prompt:', data);
+      if (data) {
+        if (data.prompt) setPrompt(data.prompt);
+        if (data.players) setPlayers(data.players);
+      }
       setIsLoading(false);
       setGameState('playing');
     };
 
-    const handlePlayerJoined = ({ players }) => {
-      console.log('Player joined:', players);
-      setPlayers(players);
+    const handlePlayerJoined = (data) => {
+      console.log('Player joined:', data);
+      if (data && data.players) {
+        setPlayers(data.players);
+      }
       setIsLoading(false);
     };
 
-    const handleRoundResult = ({ scores }) => {
-      console.log('Round result:', scores);
-      setScores(scores);
+    const handleRoundResult = (data) => {
+      console.log('Round result:', data);
+      if (data && data.scores) {
+        setScores(data.scores);
+      }
     };
 
-    const handleRoundComplete = ({ prompt, players }) => {
+    const handleRoundComplete = (data) => {
+      console.log('Round complete:', data);
       setRoundNumber(prev => prev + 1);
-      setPrompt(prompt);
-      setPlayers(players);
+      if (data) {
+        if (data.prompt) setPrompt(data.prompt);
+        if (data.players) setPlayers(data.players);
+      }
       setAnswer('');
       setIsLoading(false);
     };
