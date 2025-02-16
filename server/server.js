@@ -6,28 +6,37 @@
 */
 
 const express = require('express');
-const app = express();
-const http = require('http').createServer(app);
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 
-// CORS konfiguration
+const app = express();
+const http = require('http').createServer(app);
+
+// Fælles CORS configuration
+const ALLOWED_ORIGINS = ['https://noerpol.github.io', 'http://localhost:3000'];
 const corsOptions = {
-  origin: ['https://noerpol.github.io', 'http://localhost:3000'],
+  origin: function (origin, callback) {
+    if (!origin || ALLOWED_ORIGINS.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST'],
   credentials: true,
   optionsSuccessStatus: 200
 };
 
+// Anvend CORS middleware
 app.use(cors(corsOptions));
 
-// Socket.io setup med samme CORS options
+// Socket.IO setup med samme CORS options
 const io = require('socket.io')(http, {
   cors: corsOptions,
-  transports: ['polling', 'websocket'],
-  pingTimeout: 10000,
-  pingInterval: 5000
+  transports: ['websocket', 'polling'],
+  pingTimeout: 60000,
+  pingInterval: 25000
 });
 
 // Load words
@@ -72,9 +81,11 @@ io.on('connection', (socket) => {
     
     if (!gameSessions[gameCode]) {
       console.log('Creating new game session:', gameCode);
+      const newPrompt = selectNewPrompt(gameCode);
+      console.log('Selected new prompt:', newPrompt);
       gameSessions[gameCode] = {
         players: {},
-        currentPrompt: selectNewPrompt(gameCode),
+        currentPrompt: newPrompt,
         roundActive: false,
         usedWords: new Set()
       };
@@ -103,17 +114,15 @@ io.on('connection', (socket) => {
     socket.join(gameCode);
     console.log('Player joined room:', gameCode);
     
-    // Send events in correct order
+    // Send current game state to new player
     socket.emit('newPrompt', {
       prompt: session.currentPrompt,
       players: session.players
     });
     
+    // Update all players about the new player
     io.to(gameCode).emit('playerJoined', session.players);
-    console.log('Sent game state to players:', {
-      prompt: session.currentPrompt,
-      playersCount: Object.keys(session.players).length
-    });
+    console.log('Sent game state to players');
   });
 
   socket.on('submitAnswer', ({ gameCode, answer }) => {
