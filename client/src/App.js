@@ -256,6 +256,12 @@ function App() {
     }
   };
 
+  const handleStartGame = () => {
+    if (players && Object.values(players || {}).every(player => player?.ready)) {
+      socket.emit('startGame', { gameCode });
+    }
+  };
+
   return (
     <ThemeProvider theme={theme}>
       <GlobalStyle />
@@ -376,6 +382,14 @@ function App() {
                     </PlayerCard>
                   ))}
                 </PlayersList>
+                <Button
+                  type="button"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleStartGame}
+                >
+                  Start spillet
+                </Button>
               </motion.div>
             )}
           </AnimatePresence>
