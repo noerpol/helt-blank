@@ -262,6 +262,14 @@ const App = () => {
       setIsLoading(false);
     };
 
+    const handlePlayerJoined = (players) => {
+      console.log('Players updated:', players);
+      if (players) {
+        setPlayers(players);
+      }
+      setIsLoading(false);
+    };
+
     socket.on('connect', handleConnect);
     socket.on('connect_error', handleConnectError);
     socket.on('disconnect', handleDisconnect);
