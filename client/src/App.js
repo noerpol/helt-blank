@@ -169,19 +169,17 @@ const ScoreList = styled.div`
 // App component
 const App = () => {
   const [socket, setSocket] = useState(null);
-  const [gameCode, setGameCode] = useState('');
   const [name, setName] = useState('');
-  const [players, setPlayers] = useState({});
-  const [prompt, setPrompt] = useState('');
+  const [gameCode, setGameCode] = useState('');
   const [answer, setAnswer] = useState('');
+  const [prompt, setPrompt] = useState('');
   const [message, setMessage] = useState('');
+  const [players, setPlayers] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [gameState, setGameState] = useState('init');
   const [winner, setWinner] = useState(null);
   const [roundNumber, setRoundNumber] = useState(1);
   const [scores, setScores] = useState({});
-  const [connected, setConnected] = useState(false);
-  const [error, setError] = useState(null);
 
   const handleSubmit = useCallback((e) => {
     if (e) e.preventDefault();
@@ -211,8 +209,7 @@ const App = () => {
 
     const handleConnect = () => {
       console.log('Connected to server');
-      setConnected(true);
-      setError(null);
+      setMessage('');
       
       // Rejoin game if we were in one
       if (gameCode && name) {
@@ -223,13 +220,12 @@ const App = () => {
 
     const handleConnectError = (error) => {
       console.log('Connection Error:', error);
-      setError('Could not connect to server');
-      setConnected(false);
+      setMessage('Could not connect to server');
     };
 
     const handleDisconnect = (reason) => {
       console.log('Disconnected:', reason);
-      setConnected(false);
+      setMessage('Lost connection - trying to reconnect...');
     };
 
     const handleNewPrompt = ({ prompt, players }) => {
