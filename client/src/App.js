@@ -182,6 +182,25 @@ const App = () => {
   const [scores, setScores] = useState({});
   const [pointChanges, setPointChanges] = useState({});
 
+  const handleRoundResult = useCallback((data) => {
+    console.log('Round result received:', data);
+    if (data) {
+      if (data.scores) setScores(data.scores);
+      if (data.pointChanges) setPointChanges(data.pointChanges);
+      if (data.answers) {
+        const newPlayers = { ...players };
+        Object.entries(data.answers).forEach(([name, answer]) => {
+          Object.values(newPlayers).forEach(player => {
+            if (player.name === name) {
+              player.answer = answer;
+            }
+          });
+        });
+        setPlayers(newPlayers);
+      }
+    }
+  }, [players]);
+
   useEffect(() => {
     if (!socket) {
       console.log('Initializing new socket connection');
@@ -228,25 +247,6 @@ const App = () => {
         setGameState('playing');
         setIsLoading(false);
         setPointChanges({}); // Reset point changes for new round
-      }
-    };
-
-    const handleRoundResult = (data) => {
-      console.log('Round result received:', data);
-      if (data) {
-        if (data.scores) setScores(data.scores);
-        if (data.pointChanges) setPointChanges(data.pointChanges);
-        if (data.answers) {
-          const newPlayers = { ...players };
-          Object.entries(data.answers).forEach(([name, answer]) => {
-            Object.values(newPlayers).forEach(player => {
-              if (player.name === name) {
-                player.answer = answer;
-              }
-            });
-          });
-          setPlayers(newPlayers);
-        }
       }
     };
 
@@ -302,7 +302,7 @@ const App = () => {
       socket.off('error');
       socket.off('gameOver');
     };
-  }, [socket, gameCode, name, gameState]);
+  }, [socket, gameCode, name, gameState, handleRoundResult]);
 
   const handleJoinGame = useCallback((e) => {
     e.preventDefault();
