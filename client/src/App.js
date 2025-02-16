@@ -201,8 +201,8 @@ const App = () => {
     }
 
     const newSocket = io('https://helt-blank.onrender.com', {
-      withCredentials: false,
-      transports: ['polling', 'websocket'],
+      withCredentials: true,
+      transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
