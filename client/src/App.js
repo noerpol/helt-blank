@@ -238,7 +238,17 @@ const App = () => {
       if (data) {
         if (data.scores) setScores(data.scores);
         if (data.pointChanges) setPointChanges(data.pointChanges);
-        if (data.players) setPlayers(data.players);
+        if (data.answers) {
+          const newPlayers = { ...players };
+          Object.entries(data.answers).forEach(([name, answer]) => {
+            Object.values(newPlayers).forEach(player => {
+              if (player.name === name) {
+                player.answer = answer;
+              }
+            });
+          });
+          setPlayers(newPlayers);
+        }
       }
     };
 
