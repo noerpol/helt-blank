@@ -201,13 +201,7 @@ const App = () => {
     }
 
     const newSocket = io('https://helt-blank.onrender.com', {
-      withCredentials: true,
-      transports: ['polling'],
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      timeout: 60000
+      transports: ['polling']
     });
 
     const handleConnect = () => {

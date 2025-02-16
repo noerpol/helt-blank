@@ -22,24 +22,14 @@ const openai = new OpenAI({
 });
 
 // Configure CORS
-app.use(cors({
-  origin: true,
-  methods: ['GET', 'POST', 'OPTIONS'],
-  credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+app.use(cors());
 
 const io = new Server(httpServer, {
   cors: {
-    origin: true,
-    methods: ['GET', 'POST', 'OPTIONS'],
-    credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization']
+    origin: "*",
+    methods: ["GET", "POST"]
   },
-  transports: ['polling'],
-  allowEIO3: true,
-  pingTimeout: 60000,
-  pingInterval: 25000
+  transports: ['polling']
 });
 
 const MIN_PLAYERS = parseInt(process.env.MIN_PLAYERS) || 3;
