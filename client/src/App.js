@@ -231,11 +231,14 @@ function App() {
   }, [answer, gameCode, socket]);
 
   useEffect(() => {
-    if (socket?.connected) return; // Undgå reconnect hvis allerede forbundet
+    // Opret en reference til socket.connected for at undgå stale closure
+    const isConnected = socket?.connected;
+    
+    if (isConnected) return; // Undgå reconnect hvis allerede forbundet
 
     const newSocket = io('https://helt-blank.onrender.com', {
       withCredentials: true,
-      transports: ['polling', 'websocket'], // Prioriter polling først
+      transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
@@ -308,7 +311,7 @@ function App() {
         newSocket.close();
       }
     };
-  }, []);
+  }, [socket?.connected]); // Tilføj socket?.connected som dependency
 
   useEffect(() => {
     let timer = null;
