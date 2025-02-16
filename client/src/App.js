@@ -218,6 +218,8 @@ function App() {
   const [gameState, setGameState] = useState('lobby');
   const [winner, setWinner] = useState(null);
   const [timeLeft, setTimeLeft] = useState(15);
+  const [score, setScore] = useState(0);
+  const [message, setMessage] = useState('');
 
   const handleSubmit = useCallback((e) => {
     e.preventDefault();
@@ -238,27 +240,32 @@ function App() {
     
     newSocket.on('connect_error', (error) => {
       console.error('Connection Error:', error);
-      // Implementer fejlhåndtering her hvis nødvendigt
+      setMessage('Forbindelsesfejl - prøver igen...');
     });
 
     newSocket.on('newPrompt', ({ prompt, players }) => {
       setPrompt(prompt);
       setPlayers(players);
-      setAnswer('');
+      setIsLoading(false);
+      setMessage('');
+    });
+
+    newSocket.on('playerJoined', (players) => {
+      setPlayers(players);
       setIsLoading(false);
     });
 
-    newSocket.on('updateScores', ({ players }) => {
-      console.log('Modtog scores:', players);
+    newSocket.on('roundResult', ({ players, roundWinners }) => {
       setPlayers(players);
-      if (players[newSocket.id]) {
-        setScore(players[newSocket.id].score);
+      setIsLoading(false);
+      if (roundWinners.includes(socket?.id)) {
+        setScore(prev => prev + (roundWinners.length === 2 ? 3 : 1));
       }
     });
 
-    newSocket.on('message', (msg) => {
-      console.log('Modtog besked:', msg);
-      setMessage(msg);
+    newSocket.on('error', ({ message }) => {
+      setMessage(message);
+      setIsLoading(false);
     });
 
     newSocket.on('gameOver', ({ winner, score }) => {
@@ -327,7 +334,7 @@ function App() {
           <HeaderContent>
             <Logo>Helt Blank</Logo>
             {gameState === 'lobby' && (
-              <Score>Score: <span>0</span></Score>
+              <Score>Score: <span>{score}</span></Score>
             )}
           </HeaderContent>
         </Header>
