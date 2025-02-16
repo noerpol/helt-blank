@@ -351,19 +351,63 @@ function resetRound(gameCode) {
   const game = games.get(gameCode);
   if (!game) return;
 
+  // Reset answers
   Object.values(game.players).forEach(player => {
     player.answer = null;
   });
 
+  // Get and set new prompt
   const prompt = getRandomPrompt(gameCode);
   game.currentPrompt = prompt;
-  
+  console.log('Sending new prompt:', prompt);
+
+  // Send new prompt to all players
   io.to(gameCode).emit('newPrompt', {
     prompt: prompt,
     players: game.players
   });
 
+  // Start AI answers
   submitAIAnswers(gameCode, prompt);
+}
+
+function joinGame(socket, { gameCode, name }) {
+  console.log('Join game request:', { gameCode, name });
+  
+  let game = games.get(gameCode);
+  
+  if (!game) {
+    game = {
+      players: {},
+      currentPrompt: getRandomPrompt(gameCode),
+      usedWords: new Set()
+    };
+    games.set(gameCode, game);
+  }
+
+  // Add player to game
+  game.players[socket.id] = {
+    id: socket.id,
+    name: name,
+    score: 0,
+    answer: null
+  };
+
+  // Join socket room
+  socket.join(gameCode);
+  
+  // Send current game state to all players
+  io.to(gameCode).emit('playerJoined', game.players);
+  
+  // If we have 3 or more players, start the game
+  if (Object.keys(game.players).length >= 3 && !aiPlayers.has(gameCode)) {
+    addAIPlayers(gameCode);
+    io.to(gameCode).emit('newPrompt', {
+      prompt: game.currentPrompt,
+      players: game.players
+    });
+    submitAIAnswers(gameCode, game.currentPrompt);
+  }
 }
 
 // Error handling for the server
@@ -387,53 +431,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('joinGame', (data) => {
-    console.log('Join game request:', data);
-    try {
-      let game = games.get(data.gameCode);
-      
-      if (!game) {
-        game = {
-          players: {},
-          currentPrompt: getRandomPrompt(data.gameCode),
-          usedWords: new Set()
-        };
-        games.set(data.gameCode, game);
-      }
-
-      // Remove old socket ID if this player is reconnecting
-      Object.entries(game.players).forEach(([oldSocketId, player]) => {
-        if (player.name === data.name) {
-          console.log(`Player ${data.name} reconnecting, updating socket ID from ${oldSocketId} to ${socket.id}`);
-          delete game.players[oldSocketId];
-        }
-      });
-
-      // Add the player with new socket ID
-      game.players[socket.id] = {
-        id: socket.id,
-        name: data.name,
-        score: 0,
-        answer: null
-      };
-
-      socket.join(data.gameCode);
-      
-      // Manage AI players after adding new human player
-      manageAIPlayers(data.gameCode);
-
-      io.to(data.gameCode).emit('playerJoined', game.players);
-      socket.emit('newPrompt', {
-        prompt: game.currentPrompt,
-        playersCount: Object.keys(game.players).length
-      });
-
-      // Submit AI answers if this is a new game
-      if (Object.keys(game.players).length <= MIN_PLAYERS) {
-        submitAIAnswers(data.gameCode, game.currentPrompt);
-      }
-    } catch (error) {
-      console.error('Error in joinGame:', error);
-    }
+    joinGame(socket, data);
   });
 
   socket.on('submitAnswer', (data) => {

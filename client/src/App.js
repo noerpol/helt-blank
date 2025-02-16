@@ -220,14 +220,16 @@ const App = () => {
 
     const handleNewPrompt = (data) => {
       console.log('New prompt received:', data);
-      if (data) {
-        setPrompt(data.prompt || '');
+      if (data && data.prompt) {
+        setPrompt(data.prompt);
         if (data.players) {
           setPlayers(data.players);
         }
         setGameState('playing');
         setIsLoading(false);
         setPointChanges({}); // Reset point changes for new round
+      } else {
+        console.error('Invalid prompt data received:', data);
       }
     };
 
