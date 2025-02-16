@@ -201,7 +201,8 @@ const App = () => {
     }
 
     const newSocket = io('https://helt-blank.onrender.com', {
-      transports: ['polling']
+      transports: ['polling'],
+      withCredentials: true
     });
 
     const handleConnect = () => {
