@@ -218,36 +218,40 @@ const App = () => {
     };
 
     const handleNewPrompt = (data) => {
-      console.log('New prompt:', data);
+      console.log('New prompt received:', data);
       if (data) {
-        if (data.prompt) setPrompt(data.prompt);
-        if (data.players) setPlayers(data.players);
+        setPrompt(data.prompt || '');
+        if (data.players) {
+          setPlayers(data.players);
+        }
+        setGameState('playing');
+        setIsLoading(false);
       }
-      setIsLoading(false);
-      setGameState('playing');
     };
 
-    const handlePlayerJoined = (data) => {
-      console.log('Player joined:', data);
-      if (data && data.players) {
-        setPlayers(data.players);
+    const handlePlayerJoined = (players) => {
+      console.log('Players updated:', players);
+      if (players) {
+        setPlayers(players);
       }
       setIsLoading(false);
     };
 
     const handleRoundResult = (data) => {
-      console.log('Round result:', data);
-      if (data && data.scores) {
-        setScores(data.scores);
+      console.log('Round result received:', data);
+      if (data) {
+        if (data.scores) setScores(data.scores);
+        if (data.players) setPlayers(data.players);
       }
     };
 
     const handleRoundComplete = (data) => {
       console.log('Round complete:', data);
-      setRoundNumber(prev => prev + 1);
       if (data) {
         if (data.prompt) setPrompt(data.prompt);
         if (data.players) setPlayers(data.players);
+        if (data.scores) setScores(data.scores);
+        setRoundNumber(prev => prev + 1);
       }
       setAnswer('');
       setIsLoading(false);
@@ -262,7 +266,7 @@ const App = () => {
     socket.on('roundComplete', handleRoundComplete);
     
     socket.on('error', ({ message }) => {
-      console.log('Received error:', message);
+      console.log('Game error:', message);
       setMessage(message);
       setIsLoading(false);
     });
@@ -287,6 +291,15 @@ const App = () => {
     };
   }, [socket, gameCode, name, gameState]);
 
+  const handleJoinGame = useCallback((e) => {
+    e.preventDefault();
+    if (!socket || !name || !gameCode) return;
+    
+    console.log('Joining game:', { gameCode, name });
+    setIsLoading(true);
+    socket.emit('joinGame', { gameCode, name });
+  }, [socket, name, gameCode]);
+
   const handleSubmit = useCallback((e) => {
     if (e) e.preventDefault();
     if (!answer.trim() || !gameCode || !socket || !name) return;
@@ -300,15 +313,6 @@ const App = () => {
     setAnswer('');
     setIsLoading(true);
   }, [answer, gameCode, socket, name]);
-
-  const handleJoinGame = useCallback((e) => {
-    e.preventDefault();
-    if (!socket || !name || !gameCode) return;
-    
-    console.log('Joining game:', { gameCode, name });
-    setIsLoading(true);
-    socket.emit('joinGame', { gameCode, name });
-  }, [socket, name, gameCode]);
 
   return (
     <ThemeProvider theme={theme}>
