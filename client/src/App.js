@@ -201,8 +201,8 @@ const App = () => {
     }
 
     const newSocket = io('https://helt-blank.onrender.com', {
-      withCredentials: true,
-      transports: ['websocket', 'polling'],
+      withCredentials: false,
+      transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
@@ -304,7 +304,7 @@ const App = () => {
         clearInterval(timer);
       }
     };
-  }, [prompt, winner, gameState, socket?.id, players, handleSubmit]);
+  }, [socket?.id, prompt, winner, players, handleSubmit, gameState]);
 
   return (
     <ThemeProvider theme={theme}>
