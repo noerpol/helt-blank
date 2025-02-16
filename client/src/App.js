@@ -231,7 +231,10 @@ function App() {
   }, [answer, gameCode, socket]);
 
   useEffect(() => {
-    if (socket?.connected) return; // Undgå reconnect hvis allerede forbundet
+    if (socket?.connected) {
+      console.log('Already connected, skipping socket initialization');
+      return;
+    }
 
     const newSocket = io('https://helt-blank.onrender.com', {
       withCredentials: true,
@@ -317,7 +320,7 @@ function App() {
         newSocket.close();
       }
     };
-  }, []);
+  }, [socket?.connected]);
 
   useEffect(() => {
     let timer = null;
