@@ -187,17 +187,7 @@ const App = () => {
     if (data) {
       if (data.scores) setScores(data.scores);
       if (data.pointChanges) setPointChanges(data.pointChanges);
-      if (data.answers) {
-        const newPlayers = { ...players };
-        Object.entries(data.answers).forEach(([name, answer]) => {
-          Object.values(newPlayers).forEach(player => {
-            if (player.name === name) {
-              player.answer = answer;
-            }
-          });
-        });
-        setPlayers(newPlayers);
-      }
+      if (data.players) setPlayers(data.players);
     }
   }, [players]);
 
@@ -247,6 +237,15 @@ const App = () => {
         setGameState('playing');
         setIsLoading(false);
         setPointChanges({}); // Reset point changes for new round
+      }
+    };
+
+    const handleRoundResult = (data) => {
+      console.log('Round result received:', data);
+      if (data) {
+        if (data.scores) setScores(data.scores);
+        if (data.pointChanges) setPointChanges(data.pointChanges);
+        if (data.players) setPlayers(data.players);
       }
     };
 
@@ -302,7 +301,7 @@ const App = () => {
       socket.off('error');
       socket.off('gameOver');
     };
-  }, [socket, gameCode, name, gameState, handleRoundResult]);
+  }, [socket, gameCode, name, gameState]);
 
   const handleJoinGame = useCallback((e) => {
     e.preventDefault();
@@ -440,7 +439,7 @@ const App = () => {
                   <h3>Round {roundNumber}</h3>
                   <p>Current prompt: {prompt}</p>
                   <p>Players in game: {Object.keys(players).length}</p>
-                  {scores.length > 0 && (
+                  {Object.keys(scores).length > 0 && (
                     <div>
                       <h4>Scores:</h4>
                       <ul>

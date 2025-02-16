@@ -308,44 +308,36 @@ function calculateRoundResults(gameCode) {
     if (group.length === 2) {
       // Exactly 2 players matched - 3 points each
       group.forEach(player => {
-        game.players[player.id].score += 3;
+        player.score += 3;
         pointChanges[player.name] = 3;
       });
     } else if (group.length > 2) {
       // More than 2 players matched - 1 point each
       group.forEach(player => {
-        game.players[player.id].score += 1;
+        player.score += 1;
         pointChanges[player.name] = 1;
       });
     }
   });
 
   // Check for winner
-  let winner = null;
-  Object.values(game.players).forEach(player => {
-    if (player.score >= POINTS_TO_WIN) {
-      winner = { name: player.name, score: player.score };
-    }
-  });
-
-  // Prepare scores object
-  const scores = {};
-  Object.values(game.players).forEach(player => {
-    scores[player.name] = player.score;
-  });
+  const winner = Object.values(game.players).find(p => p.score >= 25);
 
   // Send results to all players
-  io.to(gameCode).emit('roundResult', { 
-    scores,
+  io.to(gameCode).emit('roundResult', {
+    scores: Object.fromEntries(
+      Object.values(game.players).map(p => [p.name, p.score])
+    ),
     pointChanges,
-    answers: Object.fromEntries(
-      Object.values(game.players).map(p => [p.name, p.answer])
-    )
+    players: game.players
   });
 
   if (winner) {
     // Game over
-    io.to(gameCode).emit('gameOver', winner);
+    io.to(gameCode).emit('gameOver', {
+      winner: winner.name,
+      score: winner.score
+    });
     games.delete(gameCode);
     aiPlayers.delete(gameCode);
   } else {
@@ -362,13 +354,15 @@ function resetRound(gameCode) {
     player.answer = null;
   });
 
-  game.currentPrompt = getRandomPrompt(gameCode);
+  const prompt = getRandomPrompt(gameCode);
+  game.currentPrompt = prompt;
+  
   io.to(gameCode).emit('newPrompt', {
-    prompt: game.currentPrompt,
-    playersCount: Object.keys(game.players).length
+    prompt: prompt,
+    players: game.players
   });
 
-  submitAIAnswers(gameCode, game.currentPrompt);
+  submitAIAnswers(gameCode, prompt);
 }
 
 // Error handling for the server
