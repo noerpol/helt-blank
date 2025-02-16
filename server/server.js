@@ -12,32 +12,24 @@ const io = require('socket.io')(http, {
   cors: {
     origin: ["https://noerpol.github.io", "http://localhost:3000"],
     methods: ["GET", "POST"],
-    credentials: true,
-    allowedHeaders: ["Content-Type"]
+    credentials: true
   },
-  pingTimeout: 60000,
-  pingInterval: 25000,
-  transports: ['websocket', 'polling'],
-  allowEIO3: true
+  transports: ['polling', 'websocket'],
+  pingTimeout: 10000,
+  pingInterval: 5000
 });
 
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', 'https://noerpol.github.io');
-  res.header('Access-Control-Allow-Methods', 'GET, POST');
-  res.header('Access-Control-Allow-Headers', 'Content-Type');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  next();
-});
+const cors = require('cors');
+app.use(cors({
+  origin: ["https://noerpol.github.io", "http://localhost:3000"],
+  methods: ["GET", "POST"],
+  credentials: true
+}));
 
 const fs = require('fs');
 const path = require('path');
-const { Server } = require('socket.io');
+const words = require('./words.json');
 
-const wordsFile = 'words.json';
-const { words } = JSON.parse(fs.readFileSync(wordsFile, 'utf8'));
-console.log('Loaded words:', words);
-
-// Spil-sessioner pr. spilkode – holder styr på spillere, svar, brugte ord og aktuelt prompt
 const gameSessions = {};
 
 // Hjælpefunktion: Vælg et nyt prompt uden gentagelse i den aktuelle session
@@ -69,7 +61,15 @@ app.get('/', (req, res) => {
 
 // Socket.io-håndtering
 io.on('connection', (socket) => {
-  console.log(`Socket forbundet: ${socket.id}`);
+  console.log('Client connected:', socket.id);
+  
+  socket.on('disconnect', (reason) => {
+    console.log('Client disconnected:', socket.id, 'Reason:', reason);
+  });
+  
+  socket.on('error', (error) => {
+    console.error('Socket error:', error);
+  });
 
   // Spilleren joiner et spil med navn og spilkode
   socket.on('joinGame', ({ gameCode, name }) => {
@@ -173,7 +173,6 @@ io.on('connection', (socket) => {
 
   // Håndter disconnect, fjern spilleren og opdater de øvrige
   socket.on('disconnect', () => {
-    console.log(`Socket frakoblet: ${socket.id}`);
     for (const gameCode in gameSessions) {
       if (gameSessions[gameCode].players[socket.id]) {
         delete gameSessions[gameCode].players[socket.id];

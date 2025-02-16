@@ -231,37 +231,37 @@ function App() {
   }, [answer, gameCode, socket]);
 
   useEffect(() => {
-    if (socket?.id) return; // Undgå multiple connections
+    if (socket?.connected) return; // Undgå reconnect hvis allerede forbundet
 
     const newSocket = io('https://helt-blank.onrender.com', {
       withCredentials: true,
-      transports: ['websocket', 'polling'],
-      reconnectionAttempts: 5,
+      transports: ['polling', 'websocket'], // Prioriter polling først
+      reconnection: true,
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
-      timeout: 20000,
-      autoConnect: true,
-      forceNew: true
+      timeout: 10000
     });
     
-    newSocket.on('connect', () => {
+    const handleConnect = () => {
       console.log('Connected to server');
       setMessage('');
-    });
+    };
 
-    newSocket.on('connect_error', (error) => {
+    const handleConnectError = (error) => {
       console.error('Connection Error:', error);
       setMessage('Forbindelsesfejl - prøver igen...');
-    });
+    };
 
-    newSocket.on('disconnect', (reason) => {
+    const handleDisconnect = (reason) => {
       console.log('Disconnected:', reason);
-      if (reason === 'io server disconnect') {
-        // Server forcerede disconnect, forsøg reconnect
-        newSocket.connect();
-      }
-    });
+      setMessage('Mistet forbindelse - prøver at genoprette...');
+    };
 
+    // Tilføj event listeners
+    newSocket.on('connect', handleConnect);
+    newSocket.on('connect_error', handleConnectError);
+    newSocket.on('disconnect', handleDisconnect);
     newSocket.on('newPrompt', ({ prompt, players }) => {
       setPrompt(prompt);
       setPlayers(players);
@@ -277,7 +277,7 @@ function App() {
     newSocket.on('roundResult', ({ players, roundWinners }) => {
       setPlayers(players);
       setIsLoading(false);
-      if (roundWinners.includes(socket?.id)) {
+      if (roundWinners.includes(newSocket?.id)) {
         setScore(prev => prev + (roundWinners.length === 2 ? 3 : 1));
       }
     });
@@ -294,13 +294,21 @@ function App() {
 
     setSocket(newSocket);
 
+    // Cleanup
     return () => {
       if (newSocket) {
-        newSocket.removeAllListeners();
+        newSocket.off('connect', handleConnect);
+        newSocket.off('connect_error', handleConnectError);
+        newSocket.off('disconnect', handleDisconnect);
+        newSocket.removeAllListeners('newPrompt');
+        newSocket.removeAllListeners('playerJoined');
+        newSocket.removeAllListeners('roundResult');
+        newSocket.removeAllListeners('error');
+        newSocket.removeAllListeners('gameOver');
         newSocket.close();
       }
     };
-  }, [socket?.id]);
+  }, []);
 
   useEffect(() => {
     let timer = null;
