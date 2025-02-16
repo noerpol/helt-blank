@@ -1,14 +1,12 @@
 /*
   server.js – Backend til "Helt Blank"
   Denne fil konfigurerer Express-serveren, der:
-    • Serverer de byggede statiske filer fra React-appen.
     • Loader ordlisten fra words.json.
     • Håndterer realtime-spilflow via Socket.io.
 */
 
 const express = require('express');
 const http = require('http');
-const path = require('path');
 const fs = require('fs');
 const { Server } = require('socket.io');
 
@@ -28,7 +26,7 @@ const io = new Server(server, {
 });
 
 // Læs ordlisten fra words.json
-const wordsFile = path.join(__dirname, 'words.json');
+const wordsFile = 'words.json';
 const { words } = JSON.parse(fs.readFileSync(wordsFile, 'utf8'));
 console.log('Loaded words:', words);
 
@@ -53,12 +51,13 @@ function selectNewPrompt(session) {
 
 const MAX_SCORE = 30;
 
-// Server de statiske filer – forventer at React-appen er bygget i ../client/build
-app.use(express.static(path.join(__dirname, '../client/build')));
-
 // Fallback til index.html for Single Page Apps
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
+  res.sendFile('index.html');
+});
+
+app.get('/', (req, res) => {
+  res.send('Backend server for Helt Blank');
 });
 
 // Socket.io-håndtering
