@@ -385,15 +385,26 @@ io.on('connection', (socket) => {
     console.log('Answer submitted:', data);
     try {
       const game = games.get(data.gameCode);
-      if (!game) return;
+      if (!game) {
+        console.log('Game not found:', data.gameCode);
+        return;
+      }
 
       const player = game.players[socket.id];
-      if (player && player.answer === null) {
+      if (!player) {
+        console.log('Player not found:', socket.id);
+        return;
+      }
+
+      if (player.answer === null) {
         player.answer = data.answer;
+        console.log(`Player ${player.name} submitted answer: ${data.answer}`);
         io.to(data.gameCode).emit('playerJoined', game.players);
         
         // Check if all players have answered
         checkAllAnswered(data.gameCode);
+      } else {
+        console.log(`Player ${player.name} already submitted an answer`);
       }
     } catch (error) {
       console.error('Error in submitAnswer:', error);

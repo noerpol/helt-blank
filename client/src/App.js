@@ -183,12 +183,16 @@ const App = () => {
 
   const handleSubmit = useCallback((e) => {
     if (e) e.preventDefault();
-    if (answer.trim() && gameCode && socket) {
-      socket.emit('submitAnswer', { gameCode, answer: answer.trim() });
-      setAnswer('');
-      setIsLoading(true);
-    }
-  }, [answer, gameCode, socket]);
+    if (!answer.trim()) return;
+
+    console.log('Submitting answer:', answer);
+    socket.emit('submitAnswer', {
+      gameCode: gameCode,
+      answer: answer
+    });
+    setAnswer('');
+    setIsLoading(true);
+  }, [socket, answer, gameCode]);
 
   const handleJoinGame = useCallback((e) => {
     e.preventDefault();
