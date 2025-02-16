@@ -304,7 +304,7 @@ const App = () => {
       socket.off('error');
       socket.off('gameOver');
     };
-  }, [socket, gameCode, name, gameState]);
+  }, [socket, gameCode, name, gameState, players]);
 
   const handleJoinGame = (e) => {
     e.preventDefault();
