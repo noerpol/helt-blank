@@ -51,6 +51,16 @@ function getRandomAIName(gameCode) {
   return availableNames[Math.floor(Math.random() * availableNames.length)];
 }
 
+// Get random prompt from words.json
+function getRandomPrompt() {
+  const categories = Object.keys(words);
+  const category = categories[Math.floor(Math.random() * categories.length)];
+  const wordsList = words[category];
+  const word = wordsList[Math.floor(Math.random() * wordsList.length)];
+  console.log('Valgte prompt-ordet:', word, 'fra kategori:', category);
+  return word;
+}
+
 // Generate AI response using OpenAI
 async function generateAIResponse(prompt) {
   try {
@@ -59,27 +69,30 @@ async function generateAIResponse(prompt) {
       messages: [{
         role: "system",
         content: "Du er en spiller i et dansk ordassociationsspil. Din opgave er at:\n" +
-                "1. Give et enkelt dansk ord der starter med det givne præfiks\n" +
-                "2. Vælge et almindeligt og forståeligt ord\n" +
-                "3. Undgå fremmedord og meget tekniske termer\n" +
-                "4. Tænke kreativt men realistisk\n" +
-                "5. Kun svare med ét ord\n" +
-                "6. Være original og undgå at gentage ord\n" +
-                `7. Din spillerstil er: ${Math.random() > 0.5 ? 
-                  'Kreativ og poetisk - vælg ord der er stemningsfulde og beskrivende' : 
-                  'Praktisk og konkret - vælg almindelige hverdagsord'}`
+                "1. Se et ord (f.eks. 'hund')\n" +
+                "2. Svare med ét ord du associerer med det ord\n" +
+                "3. Tænke på hvad andre spillere sandsynligvis ville associere med ordet\n" +
+                "4. Vælge almindelige og letforståelige associationer\n" +
+                "5. Målet er at matche præcis én anden spillers svar\n" +
+                `6. Din spillerstil er: ${Math.random() > 0.5 ? 
+                  'Almindelig - vælg typiske associationer som andre sandsynligvis også vil vælge' : 
+                  'Strategisk - vælg associationer som måske 1-2 andre vil vælge, men ikke flere'}`
       }, {
         role: "user",
-        content: `Giv mig et dansk ord der starter med "${prompt}". VIGTIGT: Svar KUN med ordet, ingen forklaring eller punktummer. Vær kreativ og find på et unikt ord.`
+        content: `Du får ordet "${prompt}". Hvilket ord associerer du med det? VIGTIGT: Svar KUN med ét ord, ingen forklaring.`
       }],
       max_tokens: 10,
-      temperature: 0.9
+      temperature: 0.7
     });
     
     return completion.choices[0].message.content.trim().split(' ')[0];
   } catch (error) {
     console.error('OpenAI API Error:', error);
-    return null;
+    // Hvis API fejler, vælg et tilfældigt ord fra en anden kategori som backup
+    const categories = Object.keys(words);
+    const category = categories[Math.floor(Math.random() * categories.length)];
+    const wordsList = words[category];
+    return wordsList[Math.floor(Math.random() * wordsList.length)];
   }
 }
 
@@ -161,28 +174,6 @@ async function submitAIAnswers(gameCode, prompt) {
       checkAllAnswered(gameCode);
     }
   }
-}
-
-function getRandomPrompt() {
-  // Liste over gyldige danske præfikser
-  const validPrefixes = [
-    'ba', 'be', 'bi', 'bo', 'br', 
-    'da', 'de', 'di', 'do', 'dr',
-    'fa', 'fe', 'fi', 'fo', 'fr',
-    'ga', 'ge', 'gi', 'go', 'gr',
-    'ha', 'he', 'hi', 'ho', 'hu',
-    'ka', 'ke', 'ki', 'ko', 'kr',
-    'la', 'le', 'li', 'lo', 'ly',
-    'ma', 'me', 'mi', 'mo', 'mu',
-    'na', 'ne', 'ni', 'no', 'ny',
-    'pa', 'pe', 'pi', 'po', 'pr',
-    'ra', 're', 'ri', 'ro', 'ru',
-    'sa', 'se', 'si', 'so', 'sp', 'st',
-    'ta', 'te', 'ti', 'to', 'tr',
-    'va', 've', 'vi', 'vo', 'vr'
-  ];
-  
-  return validPrefixes[Math.floor(Math.random() * validPrefixes.length)];
 }
 
 function checkAllAnswered(gameCode) {
