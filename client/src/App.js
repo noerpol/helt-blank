@@ -6,7 +6,7 @@
     • Indsendelse af svar og visning af runderesultater samt opdatering af scores
 */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import styled, { createGlobalStyle, ThemeProvider } from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -220,14 +220,14 @@ function App() {
   const [score, setScore] = useState(0);
   const [message, setMessage] = useState('');
 
-  const handleSubmit = useCallback((e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     if (answer.trim() && gameCode && socket) {
       socket.emit('submitAnswer', { gameCode, answer: answer.trim() });
       setAnswer('');
       setIsLoading(true);
     }
-  }, [answer, gameCode, socket]);
+  };
 
   useEffect(() => {
     if (socket?.connected) {
