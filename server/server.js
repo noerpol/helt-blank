@@ -353,7 +353,15 @@ io.on('connection', (socket) => {
         games.set(data.gameCode, game);
       }
 
-      // Add the new player
+      // Remove old socket ID if this player is reconnecting
+      Object.entries(game.players).forEach(([oldSocketId, player]) => {
+        if (player.name === data.name) {
+          console.log(`Player ${data.name} reconnecting, updating socket ID from ${oldSocketId} to ${socket.id}`);
+          delete game.players[oldSocketId];
+        }
+      });
+
+      // Add the player with new socket ID
       game.players[socket.id] = {
         id: socket.id,
         name: data.name,
@@ -369,7 +377,7 @@ io.on('connection', (socket) => {
       io.to(data.gameCode).emit('playerJoined', game.players);
       socket.emit('newPrompt', {
         prompt: game.currentPrompt,
-        players: game.players
+        playersCount: Object.keys(game.players).length
       });
 
       // Submit AI answers if this is a new game
@@ -390,7 +398,19 @@ io.on('connection', (socket) => {
         return;
       }
 
-      const player = game.players[socket.id];
+      // Find player by name if socket ID doesn't match
+      let player = game.players[socket.id];
+      if (!player) {
+        const playerEntry = Object.entries(game.players).find(([_, p]) => p.name === data.name);
+        if (playerEntry) {
+          console.log(`Found player ${data.name} with different socket ID, updating from ${playerEntry[0]} to ${socket.id}`);
+          player = playerEntry[1];
+          delete game.players[playerEntry[0]];
+          game.players[socket.id] = player;
+          player.id = socket.id;
+        }
+      }
+
       if (!player) {
         console.log('Player not found:', socket.id);
         return;

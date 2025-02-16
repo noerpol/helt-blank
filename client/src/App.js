@@ -180,19 +180,22 @@ const App = () => {
   const [winner, setWinner] = useState(null);
   const [roundNumber, setRoundNumber] = useState(1);
   const [scores, setScores] = useState({});
+  const [connected, setConnected] = useState(false);
+  const [error, setError] = useState(null);
 
   const handleSubmit = useCallback((e) => {
     if (e) e.preventDefault();
-    if (!answer.trim()) return;
+    if (!answer.trim() || !gameCode || !socket || !name) return;
 
-    console.log('Submitting answer:', answer);
+    console.log('Submitting answer:', { gameCode, answer: answer.trim(), name });
     socket.emit('submitAnswer', {
-      gameCode: gameCode,
-      answer: answer
+      gameCode,
+      answer: answer.trim(),
+      name
     });
     setAnswer('');
     setIsLoading(true);
-  }, [socket, answer, gameCode]);
+  }, [answer, gameCode, socket, name]);
 
   const handleJoinGame = useCallback((e) => {
     e.preventDefault();
@@ -204,28 +207,29 @@ const App = () => {
   }, [name, gameCode, socket]);
 
   useEffect(() => {
-    if (socket?.connected) {
-      console.log('Already connected, skipping socket initialization');
-      return;
-    }
-
-    const newSocket = io('https://helt-blank.onrender.com', {
-      transports: ['polling']
-    });
+    if (!socket) return;
 
     const handleConnect = () => {
       console.log('Connected to server');
-      setMessage('');
+      setConnected(true);
+      setError(null);
+      
+      // Rejoin game if we were in one
+      if (gameCode && name) {
+        console.log('Rejoining game after reconnect:', { gameCode, name });
+        socket.emit('joinGame', { gameCode, name });
+      }
     };
 
     const handleConnectError = (error) => {
-      console.error('Connection Error:', error);
-      setMessage('Forbindelsesfejl - prøver igen...');
+      console.log('Connection Error:', error);
+      setError('Could not connect to server');
+      setConnected(false);
     };
 
     const handleDisconnect = (reason) => {
       console.log('Disconnected:', reason);
-      setMessage('Mistet forbindelse - prøver at genoprette...');
+      setConnected(false);
     };
 
     const handleNewPrompt = ({ prompt, players }) => {
@@ -263,43 +267,54 @@ const App = () => {
       }
     };
 
-    newSocket.on('connect', handleConnect);
-    newSocket.on('connect_error', handleConnectError);
-    newSocket.on('disconnect', handleDisconnect);
-    newSocket.on('newPrompt', handleNewPrompt);
-    newSocket.on('playerJoined', handlePlayerJoined);
-    newSocket.on('roundResult', handleRoundResult);
-    newSocket.on('roundComplete', handleRoundComplete);
+    socket.on('connect', handleConnect);
+    socket.on('connect_error', handleConnectError);
+    socket.on('disconnect', handleDisconnect);
+    socket.on('newPrompt', handleNewPrompt);
+    socket.on('playerJoined', handlePlayerJoined);
+    socket.on('roundResult', handleRoundResult);
+    socket.on('roundComplete', handleRoundComplete);
     
-    newSocket.on('error', ({ message }) => {
+    socket.on('error', ({ message }) => {
       console.log('Received error:', message);
       setMessage(message);
       setIsLoading(false);
     });
 
-    newSocket.on('gameOver', ({ winner, score }) => {
+    socket.on('gameOver', ({ winner, score }) => {
       console.log('Game over:', { winner, score });
       setGameState('ended');
       setWinner({ name: winner, score });
     });
 
-    setSocket(newSocket);
-
     return () => {
-      if (newSocket) {
-        newSocket.off('connect', handleConnect);
-        newSocket.off('connect_error', handleConnectError);
-        newSocket.off('disconnect', handleDisconnect);
-        newSocket.off('newPrompt', handleNewPrompt);
-        newSocket.off('playerJoined', handlePlayerJoined);
-        newSocket.off('roundResult', handleRoundResult);
-        newSocket.off('roundComplete', handleRoundComplete);
-        newSocket.removeAllListeners('error');
-        newSocket.removeAllListeners('gameOver');
-        newSocket.close();
+      if (socket) {
+        socket.off('connect', handleConnect);
+        socket.off('connect_error', handleConnectError);
+        socket.off('disconnect', handleDisconnect);
+        socket.off('newPrompt', handleNewPrompt);
+        socket.off('playerJoined', handlePlayerJoined);
+        socket.off('roundResult', handleRoundResult);
+        socket.off('roundComplete', handleRoundComplete);
+        socket.removeAllListeners('error');
+        socket.removeAllListeners('gameOver');
+        socket.close();
       }
     };
-  }, [socket?.connected, gameState]);
+  }, [socket, gameCode, name, gameState]);
+
+  useEffect(() => {
+    if (socket?.connected) {
+      console.log('Already connected, skipping socket initialization');
+      return;
+    }
+
+    const newSocket = io('https://helt-blank.onrender.com', {
+      transports: ['polling']
+    });
+
+    setSocket(newSocket);
+  }, [socket?.connected]);
 
   return (
     <ThemeProvider theme={theme}>
