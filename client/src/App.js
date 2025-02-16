@@ -6,7 +6,7 @@
     • Indsendelse af svar og visning af runderesultater samt opdatering af scores
 */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import styled, { createGlobalStyle, ThemeProvider } from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -165,7 +165,7 @@ const PlayersList = styled(motion.div)`
 `;
 
 const PlayerCard = styled(motion.div)`
-  background: rgba(255, 255, 255, 0.05);
+  background: ${props => props.hasAnswered ? '#e8f5e9' : 'rgba(255, 255, 255, 0.05)'};
   padding: 1rem;
   border-radius: 12px;
   backdrop-filter: blur(10px);
@@ -185,6 +185,14 @@ const Message = styled(motion.div)`
   color: ${props => props.theme.colors.textSecondary};
   text-align: center;
   margin: 1rem 0;
+`;
+
+const Timer = styled.div`
+  font-size: 1.5rem;
+  font-weight: bold;
+  text-align: center;
+  margin: 1rem 0;
+  color: ${props => props.timeLeft <= 5 ? 'red' : 'black'};
 `;
 
 const gameOverStyle = {
@@ -212,6 +220,8 @@ function App() {
   const [players, setPlayers] = useState({});
   const [gameState, setGameState] = useState('lobby');
   const [winner, setWinner] = useState(null);
+  const [timeLeft, setTimeLeft] = useState(15);
+  const timerRef = useRef(null);
 
   useEffect(() => {
     const newSocket = io('https://helt-blank.onrender.com');
@@ -244,6 +254,25 @@ function App() {
 
     return () => newSocket.close();
   }, []);
+
+  useEffect(() => {
+    if (prompt && !winner) {
+      setTimeLeft(15);
+      timerRef.current = setInterval(() => {
+        setTimeLeft(time => {
+          if (time <= 1) {
+            clearInterval(timerRef.current);
+            if (!players[socket.id]?.answer) {
+              handleSubmit({ preventDefault: () => {} });
+            }
+            return 0;
+          }
+          return time - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timerRef.current);
+  }, [prompt, winner]);
 
   const joinGame = (e) => {
     e.preventDefault();
@@ -343,6 +372,9 @@ function App() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
               >
+                <Timer timeLeft={timeLeft}>
+                  {timeLeft} sekunder
+                </Timer>
                 <PromptDisplay
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -380,8 +412,9 @@ function App() {
 
                 <PlayersList>
                   {safeObjectValues(players).map((player) => (
-                    <PlayerCard
+                    <PlayerCard 
                       key={player.id}
+                      hasAnswered={Boolean(player.answer)}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.1 }}

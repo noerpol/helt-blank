@@ -65,30 +65,30 @@ io.on('connection', (socket) => {
   console.log(`Socket forbundet: ${socket.id}`);
 
   // Spilleren joiner et spil med navn og spilkode
-  socket.on('joinGame', ({ name, gameCode }) => {
-    // Opret en ny session hvis den ikke findes
-    if (!gameSessions[gameCode]) {
-      gameSessions[gameCode] = {
-        players: {},
-        answers: {},
-        usedWords: new Set(),
-        currentPrompt: null
-      };
-    }
+  socket.on('joinGame', ({ gameCode, name }) => {
     const session = gameSessions[gameCode];
-    // Gem spillerinformation
-    session.players[socket.id] = { name, score: 0, answer: null };
-    socket.join(gameCode);
-    console.log(`${name} joined game ${gameCode}`);
-
-    // Start spilrunden hvis der ikke allerede er et prompt
-    if (!session.currentPrompt) {
-      session.currentPrompt = selectNewPrompt(session);
-      console.log('Sending newPrompt:', session.currentPrompt);
+    if (!session) {
+      socket.emit('error', { message: 'Spil ikke fundet' });
+      return;
     }
-    // Send nuværende prompt til spilleren
-    socket.emit('newPrompt', { prompt: session.currentPrompt });
-    io.to(gameCode).emit('updateScores', { players: session.players });
+    
+    // Check om runde er i gang
+    const roundInProgress = Object.values(session.players).some(p => p.answer);
+    
+    if (roundInProgress) {
+      socket.emit('error', { message: 'Vent venligst til næste runde' });
+      return;
+    }
+    
+    session.players[socket.id] = { 
+      name, 
+      score: 0, 
+      answer: null,
+      ready: false
+    };
+    
+    socket.join(gameCode);
+    io.to(gameCode).emit('playerJoined', session.players);
   });
 
   // Håndter indsendte svar fra spillere
