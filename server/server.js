@@ -261,84 +261,94 @@ function calculateRoundResults(gameCode) {
   }
 }
 
+// Error handling for the server
+httpServer.on('error', (error) => {
+  console.error('Server error:', error);
+});
+
+io.on('error', (error) => {
+  console.error('Socket.IO error:', error);
+});
+
 io.on('connection', (socket) => {
-  console.log('New connection:', socket.id);
-
-  socket.on('joinGame', ({ gameCode, name }) => {
-    console.log('Join game request:', { gameCode, name, socketId: socket.id });
-    
-    let game = games.get(gameCode);
-    
-    if (!game) {
-      game = {
-        players: {},
-        currentPrompt: getRandomPrompt()
-      };
-      games.set(gameCode, game);
-    }
-
-    // Add the new player
-    game.players[socket.id] = {
-      id: socket.id,
-      name,
-      score: 0,
-      answer: null
-    };
-
-    socket.join(gameCode);
-    
-    // Manage AI players after adding new human player
-    manageAIPlayers(gameCode);
-
-    io.to(gameCode).emit('playerJoined', game.players);
-    socket.emit('newPrompt', {
-      prompt: game.currentPrompt,
-      players: game.players
-    });
-
-    // Submit AI answers if this is a new game
-    if (Object.keys(game.players).length <= MIN_PLAYERS) {
-      submitAIAnswers(gameCode, game.currentPrompt);
-    }
+  console.log('Client connected:', socket.id);
+  
+  socket.on('error', (error) => {
+    console.error('Socket error:', error);
   });
 
-  socket.on('submitAnswer', ({ gameCode, answer }) => {
-    console.log('Answer submitted:', { gameCode, answer, socketId: socket.id });
-    
-    const game = games.get(gameCode);
-    if (!game) return;
+  socket.on('disconnect', (reason) => {
+    console.log('Client disconnected:', socket.id, 'Reason:', reason);
+  });
 
-    const player = game.players[socket.id];
-    if (player && player.answer === null) {
-      player.answer = answer;
-      io.to(gameCode).emit('playerJoined', game.players);
+  socket.on('joinGame', (data) => {
+    console.log('Join game request:', data);
+    try {
+      let game = games.get(data.gameCode);
       
-      // Check if all players have answered
-      checkAllAnswered(gameCode);
+      if (!game) {
+        game = {
+          players: {},
+          currentPrompt: getRandomPrompt()
+        };
+        games.set(data.gameCode, game);
+      }
+
+      // Add the new player
+      game.players[socket.id] = {
+        id: socket.id,
+        name: data.name,
+        score: 0,
+        answer: null
+      };
+
+      socket.join(data.gameCode);
+      
+      // Manage AI players after adding new human player
+      manageAIPlayers(data.gameCode);
+
+      io.to(data.gameCode).emit('playerJoined', game.players);
+      socket.emit('newPrompt', {
+        prompt: game.currentPrompt,
+        players: game.players
+      });
+
+      // Submit AI answers if this is a new game
+      if (Object.keys(game.players).length <= MIN_PLAYERS) {
+        submitAIAnswers(data.gameCode, game.currentPrompt);
+      }
+    } catch (error) {
+      console.error('Error in joinGame:', error);
     }
   });
 
-  socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
-    
-    // Find and clean up the game this socket was in
-    for (const [gameCode, game] of games.entries()) {
-      if (game.players[socket.id]) {
-        delete game.players[socket.id];
+  socket.on('submitAnswer', (data) => {
+    console.log('Answer submitted:', data);
+    try {
+      const game = games.get(data.gameCode);
+      if (!game) return;
+
+      const player = game.players[socket.id];
+      if (player && player.answer === null) {
+        player.answer = data.answer;
+        io.to(data.gameCode).emit('playerJoined', game.players);
         
-        // If no human players left, end the game
-        const humanPlayers = Object.values(game.players).filter(p => !p.isAI);
-        if (humanPlayers.length === 0) {
-          games.delete(gameCode);
-          aiPlayers.delete(gameCode);
-        } else {
-          // Otherwise manage AI players
-          manageAIPlayers(gameCode);
-          io.to(gameCode).emit('playerJoined', game.players);
-        }
+        // Check if all players have answered
+        checkAllAnswered(data.gameCode);
       }
+    } catch (error) {
+      console.error('Error in submitAnswer:', error);
     }
   });
+});
+
+// Process error handling
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
 const port = process.env.PORT || 4000;
