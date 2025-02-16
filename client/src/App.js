@@ -180,6 +180,7 @@ const App = () => {
   const [winner, setWinner] = useState(null);
   const [roundNumber, setRoundNumber] = useState(1);
   const [scores, setScores] = useState({});
+  const [pointChanges, setPointChanges] = useState({});
 
   useEffect(() => {
     if (!socket) {
@@ -226,22 +227,26 @@ const App = () => {
         }
         setGameState('playing');
         setIsLoading(false);
+        setPointChanges({}); // Reset point changes for new round
       }
-    };
-
-    const handlePlayerJoined = (players) => {
-      console.log('Players updated:', players);
-      if (players) {
-        setPlayers(players);
-      }
-      setIsLoading(false);
     };
 
     const handleRoundResult = (data) => {
       console.log('Round result received:', data);
       if (data) {
         if (data.scores) setScores(data.scores);
-        if (data.players) setPlayers(data.players);
+        if (data.pointChanges) setPointChanges(data.pointChanges);
+        if (data.answers) {
+          const newPlayers = { ...players };
+          Object.entries(data.answers).forEach(([name, answer]) => {
+            Object.values(newPlayers).forEach(player => {
+              if (player.name === name) {
+                player.answer = answer;
+              }
+            });
+          });
+          setPlayers(newPlayers);
+        }
       }
     };
 
@@ -423,23 +428,32 @@ const App = () => {
                   ))}
                 </PlayersList>
 
-                {gameState === 'playing' && (
-                  <ScoreList>
-                    <h3>Round {roundNumber}</h3>
-                    <p>Current prompt: {prompt}</p>
-                    <p>Players in game: {Object.keys(players).length}</p>
-                    {scores.length > 0 && (
-                      <div>
-                        <h4>Scores:</h4>
-                        <ul>
-                          {scores.map((score, index) => (
-                            <li key={index}>{score.name}: {score.score}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </ScoreList>
-                )}
+                <ScoreList>
+                  <h3>Round {roundNumber}</h3>
+                  <p>Current prompt: {prompt}</p>
+                  <p>Players in game: {Object.keys(players).length}</p>
+                  {scores.length > 0 && (
+                    <div>
+                      <h4>Scores:</h4>
+                      <ul>
+                        {Object.entries(scores).map(([name, score]) => (
+                          <li key={name}>
+                            {name}: {score}
+                            {pointChanges[name] > 0 && (
+                              <span style={{ 
+                                color: pointChanges[name] === 3 ? '#4caf50' : '#ff9800',
+                                marginLeft: '8px',
+                                fontWeight: 'bold'
+                              }}>
+                                +{pointChanges[name]}
+                              </span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </ScoreList>
               </motion.div>
             ) : (
               <motion.div

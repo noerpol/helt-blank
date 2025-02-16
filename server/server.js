@@ -33,6 +33,7 @@ const io = new Server(httpServer, {
 });
 
 const MIN_PLAYERS = parseInt(process.env.MIN_PLAYERS) || 3;
+const POINTS_TO_WIN = 25;  // Changed from 30 to 25
 const games = new Map();
 const aiPlayers = new Map();
 
@@ -50,12 +51,43 @@ function getRandomAIName(gameCode) {
 }
 
 // Get random prompt from words.json
-function getRandomPrompt() {
+function getRandomPrompt(gameCode) {
+  const game = games.get(gameCode);
+  if (!game) return null;
+
+  // Initialize usedWords if not exists
+  if (!game.usedWords) {
+    game.usedWords = new Set();
+  }
+
   const categories = Object.keys(words);
-  const category = categories[Math.floor(Math.random() * categories.length)];
-  const wordsList = words[category];
-  const word = wordsList[Math.floor(Math.random() * wordsList.length)];
-  console.log('Valgte prompt-ordet:', word, 'fra kategori:', category);
+  let word = null;
+  let attempts = 0;
+  const maxAttempts = 50; // Prevent infinite loop
+
+  while (attempts < maxAttempts) {
+    const category = categories[Math.floor(Math.random() * categories.length)];
+    const wordsList = words[category];
+    const candidate = wordsList[Math.floor(Math.random() * wordsList.length)];
+    
+    if (!game.usedWords.has(candidate)) {
+      word = candidate;
+      game.usedWords.add(word);
+      break;
+    }
+    attempts++;
+  }
+
+  // If we couldn't find a new word, reset the used words and try again
+  if (!word) {
+    game.usedWords.clear();
+    const category = categories[Math.floor(Math.random() * categories.length)];
+    const wordsList = words[category];
+    word = wordsList[Math.floor(Math.random() * wordsList.length)];
+    game.usedWords.add(word);
+  }
+
+  console.log('Valgte prompt-ordet:', word, 'fra pulje af', game.usedWords.size, 'brugte ord');
   return word;
 }
 
@@ -229,11 +261,11 @@ function checkAllAnswered(gameCode) {
     });
 
     // Check for winner
-    const winner = Object.values(game.players).find(p => p.score >= 30);
+    const winner = Object.values(game.players).find(p => p.score >= POINTS_TO_WIN);
     
     // Reset answers and send new prompt
     Object.values(game.players).forEach(p => p.answer = null);
-    game.currentPrompt = getRandomPrompt();
+    game.currentPrompt = getRandomPrompt(gameCode);
     
     io.to(gameCode).emit('roundComplete', {
       scores: Object.values(game.players).map(p => ({ name: p.name, score: p.score })),
@@ -258,75 +290,85 @@ function calculateRoundResults(gameCode) {
 
   // Group answers
   const answerGroups = {};
-  Object.entries(game.players).forEach(([id, player]) => {
+  Object.values(game.players).forEach(player => {
     const answer = player.answer.toLowerCase();
     if (!answerGroups[answer]) {
       answerGroups[answer] = [];
     }
-    answerGroups[answer].push(id);
+    answerGroups[answer].push(player);
   });
 
-  // Find matches (answers with exactly 2 players)
-  const roundWinners = [];
-  Object.entries(answerGroups).forEach(([answer, players]) => {
-    if (players.length === 2) {
-      roundWinners.push(...players);
-      // Award 3 points to each player in the pair
-      players.forEach(id => {
-        game.players[id].score += 3;
+  // Calculate points
+  const pointChanges = {};
+  Object.values(game.players).forEach(player => {
+    pointChanges[player.name] = 0;
+  });
+
+  Object.values(answerGroups).forEach(group => {
+    if (group.length === 2) {
+      // Exactly 2 players matched - 3 points each
+      group.forEach(player => {
+        game.players[player.id].score += 3;
+        pointChanges[player.name] = 3;
       });
-    } else if (players.length > 2) {
-      // Award 1 point to players who matched with more than one other
-      players.forEach(id => {
-        game.players[id].score += 1;
+    } else if (group.length > 2) {
+      // More than 2 players matched - 1 point each
+      group.forEach(player => {
+        game.players[player.id].score += 1;
+        pointChanges[player.name] = 1;
       });
     }
   });
 
-  // Reset answers
+  // Check for winner
+  let winner = null;
+  Object.values(game.players).forEach(player => {
+    if (player.score >= POINTS_TO_WIN) {
+      winner = { name: player.name, score: player.score };
+    }
+  });
+
+  // Prepare scores object
+  const scores = {};
+  Object.values(game.players).forEach(player => {
+    scores[player.name] = player.score;
+  });
+
+  // Send results to all players
+  io.to(gameCode).emit('roundResult', { 
+    scores,
+    pointChanges,
+    answers: Object.fromEntries(
+      Object.values(game.players).map(p => [p.name, p.answer])
+    )
+  });
+
+  if (winner) {
+    // Game over
+    io.to(gameCode).emit('gameOver', winner);
+    games.delete(gameCode);
+    aiPlayers.delete(gameCode);
+  } else {
+    // Start new round
+    resetRound(gameCode);
+  }
+}
+
+function resetRound(gameCode) {
+  const game = games.get(gameCode);
+  if (!game) return;
+
   Object.values(game.players).forEach(player => {
     player.answer = null;
   });
 
-  // Check for game winner
-  const winners = Object.entries(game.players)
-    .filter(([_, player]) => player.score >= 30)
-    .sort((a, b) => b[1].score - a[1].score);
+  game.currentPrompt = getRandomPrompt(gameCode);
+  io.to(gameCode).emit('newPrompt', {
+    prompt: game.currentPrompt,
+    playersCount: Object.keys(game.players).length
+  });
 
-  if (winners.length > 0) {
-    // Game over - all players with the highest score win
-    const highestScore = winners[0][1].score;
-    const actualWinners = winners.filter(([_, player]) => player.score === highestScore);
-    
-    actualWinners.forEach(([_, winner]) => {
-      io.to(gameCode).emit('gameOver', {
-        winner: winner.name,
-        score: winner.score
-      });
-    });
-    
-    // Clean up game
-    games.delete(gameCode);
-    aiPlayers.delete(gameCode);
-  } else {
-    // Continue game with new prompt
-    io.to(gameCode).emit('roundResult', {
-      players: game.players,
-      roundWinners
-    });
-
-    const newPrompt = getRandomPrompt();
-    game.currentPrompt = newPrompt;
-    
-    setTimeout(() => {
-      io.to(gameCode).emit('newPrompt', {
-        prompt: newPrompt,
-        players: game.players
-      });
-      // Submit AI answers for the new prompt
-      submitAIAnswers(gameCode, newPrompt);
-    }, 3000);
-  }
+  submitAIAnswers(gameCode, game.currentPrompt);
 }
 
 // Error handling for the server
@@ -357,7 +399,8 @@ io.on('connection', (socket) => {
       if (!game) {
         game = {
           players: {},
-          currentPrompt: getRandomPrompt()
+          currentPrompt: getRandomPrompt(data.gameCode),
+          usedWords: new Set()
         };
         games.set(data.gameCode, game);
       }
