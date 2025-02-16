@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import styled, { ThemeProvider, createGlobalStyle } from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -182,15 +182,6 @@ const App = () => {
   const [scores, setScores] = useState({});
   const [pointChanges, setPointChanges] = useState({});
 
-  const handleRoundResult = useCallback((data) => {
-    console.log('Round result received:', data);
-    if (data) {
-      if (data.scores) setScores(data.scores);
-      if (data.pointChanges) setPointChanges(data.pointChanges);
-      if (data.players) setPlayers(data.players);
-    }
-  }, [players]);
-
   useEffect(() => {
     if (!socket) {
       console.log('Initializing new socket connection');
@@ -303,16 +294,16 @@ const App = () => {
     };
   }, [socket, gameCode, name, gameState]);
 
-  const handleJoinGame = useCallback((e) => {
+  const handleJoinGame = (e) => {
     e.preventDefault();
     if (!socket || !name || !gameCode) return;
     
     console.log('Joining game:', { gameCode, name });
     setIsLoading(true);
     socket.emit('joinGame', { gameCode, name });
-  }, [socket, name, gameCode]);
+  };
 
-  const handleSubmit = useCallback((e) => {
+  const handleSubmit = (e) => {
     if (e) e.preventDefault();
     if (!answer.trim() || !gameCode || !socket || !name) return;
 
@@ -324,7 +315,7 @@ const App = () => {
     });
     setAnswer('');
     setIsLoading(true);
-  }, [answer, gameCode, socket, name]);
+  };
 
   return (
     <ThemeProvider theme={theme}>
