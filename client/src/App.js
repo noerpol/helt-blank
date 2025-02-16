@@ -272,6 +272,13 @@ const App = () => {
       setIsLoading(false);
     };
 
+    const handleRoundResults = (data) => {
+      console.log('Round results:', data);
+      setScores(data.scores);
+      setPointChanges(data.pointChanges || {});
+      setTimeout(() => setPointChanges({}), 2000);
+    };
+
     socket.on('connect', handleConnect);
     socket.on('connect_error', handleConnectError);
     socket.on('disconnect', handleDisconnect);
@@ -279,6 +286,7 @@ const App = () => {
     socket.on('playerJoined', handlePlayerJoined);
     socket.on('roundResult', handleRoundResult);
     socket.on('roundComplete', handleRoundComplete);
+    socket.on('roundResults', handleRoundResults);
     
     socket.on('error', ({ message }) => {
       console.log('Game error:', message);
@@ -301,6 +309,7 @@ const App = () => {
       socket.off('playerJoined', handlePlayerJoined);
       socket.off('roundResult', handleRoundResult);
       socket.off('roundComplete', handleRoundComplete);
+      socket.off('roundResults', handleRoundResults);
       socket.off('error');
       socket.off('gameOver');
     };
@@ -451,11 +460,11 @@ const App = () => {
                             {name}: {score}
                             {pointChanges[name] > 0 && (
                               <span style={{ 
-                                color: pointChanges[name] === 3 ? '#4caf50' : '#ff9800',
+                                color: pointChanges[name] === 3 ? '#00ff00' : '#ffa500',
                                 marginLeft: '8px',
                                 fontWeight: 'bold'
                               }}>
-                                +{pointChanges[name]}
+                                (+{pointChanges[name]})
                               </span>
                             )}
                           </li>
