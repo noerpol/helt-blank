@@ -221,7 +221,6 @@ function App() {
   const [gameState, setGameState] = useState('lobby');
   const [winner, setWinner] = useState(null);
   const [timeLeft, setTimeLeft] = useState(15);
-  const timerRef = useRef(null);
 
   useEffect(() => {
     const newSocket = io('https://helt-blank.onrender.com');
@@ -256,23 +255,32 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (prompt && !winner) {
+    let timer = null;
+    
+    const startTimer = () => {
       setTimeLeft(15);
-      timerRef.current = setInterval(() => {
-        setTimeLeft(time => {
-          if (time <= 1) {
-            clearInterval(timerRef.current);
-            if (!players[socket.id]?.answer) {
+      timer = setInterval(() => {
+        setTimeLeft(prevTime => {
+          if (prevTime <= 1) {
+            clearInterval(timer);
+            if (socket?.id && players[socket.id]?.answer === null) {
               handleSubmit({ preventDefault: () => {} });
             }
             return 0;
           }
-          return time - 1;
+          return prevTime - 1;
         });
       }, 1000);
+    };
+
+    if (prompt && !winner && gameState === 'playing') {
+      startTimer();
     }
-    return () => clearInterval(timerRef.current);
-  }, [prompt, winner]);
+
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [prompt, winner, gameState, socket?.id, players, handleSubmit]);
 
   const joinGame = (e) => {
     e.preventDefault();
@@ -321,7 +329,7 @@ function App() {
           <AnimatePresence mode="wait">
             {gameState === 'ended' && (
               <div style={gameOverStyle}>
-                <h2>🏆 {winner.name} vandt! 🏆</h2>
+                <h2> {winner.name} vandt! </h2>
                 <p>Med {winner.score} point</p>
                 <button 
                   onClick={() => {

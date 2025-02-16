@@ -66,11 +66,17 @@ io.on('connection', (socket) => {
 
   // Spilleren joiner et spil med navn og spilkode
   socket.on('joinGame', ({ gameCode, name }) => {
-    const session = gameSessions[gameCode];
-    if (!session) {
-      socket.emit('error', { message: 'Spil ikke fundet' });
-      return;
+    // Opret en ny session hvis den ikke findes
+    if (!gameSessions[gameCode]) {
+      gameSessions[gameCode] = {
+        players: {},
+        currentPrompt: selectNewPrompt(),
+        roundActive: false,
+        usedWords: new Set()
+      };
     }
+    
+    const session = gameSessions[gameCode];
     
     // Check om runde er i gang
     const roundInProgress = Object.values(session.players).some(p => p.answer);
@@ -88,6 +94,14 @@ io.on('connection', (socket) => {
     };
     
     socket.join(gameCode);
+    
+    // Send current game state
+    socket.emit('newPrompt', { 
+      prompt: session.currentPrompt,
+      players: session.players 
+    });
+    
+    // Notify others
     io.to(gameCode).emit('playerJoined', session.players);
   });
 
