@@ -71,6 +71,7 @@ io.on('connection', (socket) => {
     console.log('Join game request:', { gameCode, name, socketId: socket.id });
     
     if (!gameSessions[gameCode]) {
+      console.log('Creating new game session:', gameCode);
       gameSessions[gameCode] = {
         players: {},
         currentPrompt: selectNewPrompt(gameCode),
@@ -80,9 +81,15 @@ io.on('connection', (socket) => {
     }
 
     const session = gameSessions[gameCode];
+    console.log('Current session state:', {
+      gameCode,
+      playersCount: Object.keys(session.players).length,
+      currentPrompt: session.currentPrompt
+    });
     
     // Check if round is active
     if (Object.values(session.players).some(p => p.answer !== null)) {
+      console.log('Round is active, rejecting join');
       socket.emit('error', { message: 'Vent venligst til næste runde' });
       return;
     }
@@ -94,23 +101,37 @@ io.on('connection', (socket) => {
     };
 
     socket.join(gameCode);
+    console.log('Player joined room:', gameCode);
     
-    io.to(gameCode).emit('playerJoined', session.players);
+    // Send events in correct order
     socket.emit('newPrompt', {
       prompt: session.currentPrompt,
       players: session.players
     });
+    
+    io.to(gameCode).emit('playerJoined', session.players);
+    console.log('Sent game state to players:', {
+      prompt: session.currentPrompt,
+      playersCount: Object.keys(session.players).length
+    });
   });
 
   socket.on('submitAnswer', ({ gameCode, answer }) => {
+    console.log('Received answer:', { gameCode, socketId: socket.id, answer });
     const session = gameSessions[gameCode];
-    if (!session) return;
+    if (!session) {
+      console.log('No session found for game:', gameCode);
+      return;
+    }
 
     session.players[socket.id].answer = answer;
     io.to(gameCode).emit('playerJoined', session.players);
+    console.log('Updated player answers');
 
     // Check if all players have answered
     const allAnswered = Object.values(session.players).every(p => p.answer !== null);
+    console.log('All players answered:', allAnswered);
+    
     if (allAnswered) {
       calculateScores(gameCode);
     }

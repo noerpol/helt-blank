@@ -231,10 +231,7 @@ function App() {
   }, [answer, gameCode, socket]);
 
   useEffect(() => {
-    // Opret en reference til socket.connected for at undgå stale closure
-    const isConnected = socket?.connected;
-    
-    if (isConnected) return; // Undgå reconnect hvis allerede forbundet
+    if (socket?.connected) return; // Undgå reconnect hvis allerede forbundet
 
     const newSocket = io('https://helt-blank.onrender.com', {
       withCredentials: true,
@@ -261,57 +258,66 @@ function App() {
       setMessage('Mistet forbindelse - prøver at genoprette...');
     };
 
-    // Tilføj event listeners
-    newSocket.on('connect', handleConnect);
-    newSocket.on('connect_error', handleConnectError);
-    newSocket.on('disconnect', handleDisconnect);
-    newSocket.on('newPrompt', ({ prompt, players }) => {
+    const handleNewPrompt = ({ prompt, players }) => {
+      console.log('Received new prompt:', { prompt, playersCount: Object.keys(players).length });
       setPrompt(prompt);
       setPlayers(players);
       setIsLoading(false);
       setMessage('');
-    });
+      setGameState('playing');
+    };
 
-    newSocket.on('playerJoined', (players) => {
+    const handlePlayerJoined = (players) => {
+      console.log('Players updated:', Object.keys(players).length);
       setPlayers(players);
       setIsLoading(false);
-    });
+    };
 
-    newSocket.on('roundResult', ({ players, roundWinners }) => {
+    const handleRoundResult = ({ players, roundWinners }) => {
+      console.log('Round result:', { playersCount: Object.keys(players).length, winnersCount: roundWinners.length });
       setPlayers(players);
       setIsLoading(false);
       if (roundWinners.includes(newSocket?.id)) {
         setScore(prev => prev + (roundWinners.length === 2 ? 3 : 1));
       }
-    });
+    };
 
+    // Tilføj event listeners
+    newSocket.on('connect', handleConnect);
+    newSocket.on('connect_error', handleConnectError);
+    newSocket.on('disconnect', handleDisconnect);
+    newSocket.on('newPrompt', handleNewPrompt);
+    newSocket.on('playerJoined', handlePlayerJoined);
+    newSocket.on('roundResult', handleRoundResult);
+    
     newSocket.on('error', ({ message }) => {
+      console.log('Received error:', message);
       setMessage(message);
       setIsLoading(false);
     });
 
     newSocket.on('gameOver', ({ winner, score }) => {
+      console.log('Game over:', { winner, score });
       setGameState('ended');
       setWinner({ name: winner, score });
     });
 
     setSocket(newSocket);
 
-    // Cleanup
     return () => {
       if (newSocket) {
         newSocket.off('connect', handleConnect);
         newSocket.off('connect_error', handleConnectError);
         newSocket.off('disconnect', handleDisconnect);
-        newSocket.removeAllListeners('newPrompt');
-        newSocket.removeAllListeners('playerJoined');
-        newSocket.removeAllListeners('roundResult');
+        newSocket.off('newPrompt', handleNewPrompt);
+        newSocket.off('playerJoined', handlePlayerJoined);
+        newSocket.off('roundResult', handleRoundResult);
         newSocket.removeAllListeners('error');
         newSocket.removeAllListeners('gameOver');
         newSocket.close();
       }
     };
-  }, [socket?.connected]); // Tilføj socket?.connected som dependency
+  }, []);
 
   useEffect(() => {
     let timer = null;
