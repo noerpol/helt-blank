@@ -57,7 +57,7 @@ const theme = {
   }
 };
 
-const AppContainer = styled.div`
+const Container = styled.div`
   min-height: 100vh;
   background: ${props => props.theme.colors.background};
   display: flex;
@@ -101,7 +101,7 @@ const Score = styled.div`
   }
 `;
 
-const MainContent = styled.main`
+const Main = styled.main`
   max-width: 1200px;
   margin: 7rem auto 2rem;
   padding: 0 2rem;
@@ -276,7 +276,7 @@ function App() {
     setSocket(newSocket);
 
     return () => newSocket.close();
-  }, []);
+  }, [socket?.id]);
 
   useEffect(() => {
     let timer = null;
@@ -325,7 +325,7 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <GlobalStyle />
-      <AppContainer>
+      <Container>
         <Header
           initial={{ y: -100 }}
           animate={{ y: 0 }}
@@ -339,7 +339,17 @@ function App() {
           </HeaderContent>
         </Header>
 
-        <MainContent>
+        <Main>
+          {message && (
+            <Message
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              {message}
+            </Message>
+          )}
+
           <AnimatePresence mode="wait">
             {gameState === 'ended' && (
               <div style={gameOverStyle}>
@@ -448,8 +458,8 @@ function App() {
               </motion.div>
             )}
           </AnimatePresence>
-        </MainContent>
-      </AppContainer>
+        </Main>
+      </Container>
     </ThemeProvider>
   );
 }
