@@ -22,18 +22,12 @@ const openai = new OpenAI({
 });
 
 // Configure CORS
-app.use(cors({
-  origin: "https://noerpol.github.io",
-  methods: ["GET", "POST"],
-  credentials: true
-}));
+app.use(cors());
 
 const io = new Server(httpServer, {
   cors: {
-    origin: "https://noerpol.github.io",
-    methods: ["GET", "POST"],
-    credentials: true,
-    allowedHeaders: ["my-custom-header"],
+    origin: "*",
+    methods: ["GET", "POST"]
   },
   transports: ['polling']
 });
