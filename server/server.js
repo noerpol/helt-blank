@@ -75,14 +75,14 @@ async function generateAIResponse(prompt) {
                 "4. Vælge almindelige og letforståelige associationer\n" +
                 "5. Målet er at matche præcis én anden spillers svar\n" +
                 `6. Din spillerstil er: ${Math.random() > 0.5 ? 
-                  'Almindelig - vælg typiske associationer som andre sandsynligvis også vil vælge' : 
-                  'Strategisk - vælg associationer som måske 1-2 andre vil vælge, men ikke flere'}`
+                  'Kreativ - vælg mindre oplagte, men stadig forståelige associationer som 1-2 andre måske vil vælge' : 
+                  'Strategisk - vælg associationer der er lidt uventede, men som en anden spiller måske også vil tænke på'}`
       }, {
         role: "user",
-        content: `Du får ordet "${prompt}". Hvilket ord associerer du med det? VIGTIGT: Svar KUN med ét ord, ingen forklaring.`
+        content: `Du får ordet "${prompt}". Hvilket ord associerer du med det? VIGTIGT: Svar KUN med ét ord, ingen forklaring. Vær kreativ og undgå det mest oplagte svar.`
       }],
       max_tokens: 10,
-      temperature: 0.7
+      temperature: 1.0
     });
     
     return completion.choices[0].message.content.trim().split(' ')[0];

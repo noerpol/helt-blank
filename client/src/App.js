@@ -27,6 +27,16 @@ const GlobalStyle = createGlobalStyle`
       Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
     background-color: ${props => props.theme.colors.background};
     color: ${props => props.theme.colors.text};
+    overflow-x: hidden;
+  }
+
+  body, html {
+    height: 100%;
+    margin: 0;
+  }
+
+  #root {
+    height: 100%;
   }
 `;
 
@@ -43,7 +53,7 @@ const Header = styled(motion.header)`
 
 const HeaderContent = styled.div`
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
 `;
 
@@ -134,10 +144,6 @@ const PlayerName = styled.span`
   font-weight: bold;
 `;
 
-const PlayerScore = styled.span`
-  color: ${props => props.theme.colors.secondary};
-`;
-
 const PlayerAnswer = styled.span`
   color: ${props => props.theme.colors.primary};
   font-style: italic;
@@ -156,15 +162,6 @@ const GameStatus = styled.div`
   }
 `;
 
-const Score = styled.div`
-  color: ${props => props.theme.colors.secondary};
-  font-size: 18px;
-  
-  span {
-    font-weight: bold;
-  }
-`;
-
 // App component
 const App = () => {
   const [socket, setSocket] = useState(null);
@@ -173,7 +170,6 @@ const App = () => {
   const [players, setPlayers] = useState({});
   const [prompt, setPrompt] = useState('');
   const [answer, setAnswer] = useState('');
-  const [score, setScore] = useState(0);
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [gameState, setGameState] = useState('init');
@@ -235,8 +231,13 @@ const App = () => {
       setPlayers(players);
       setIsLoading(false);
       setMessage('');
-      setGameState('playing');
-      setRoundNumber(prev => prev + 1);
+      
+      // Kun øg rundenummer hvis vi allerede er i gang med spillet
+      if (gameState === 'playing') {
+        setRoundNumber(prev => prev + 1);
+      } else {
+        setGameState('playing');
+      }
     };
 
     const handlePlayerJoined = (players) => {
@@ -249,9 +250,6 @@ const App = () => {
       console.log('Round result:', { playersCount: Object.keys(players).length, winnersCount: roundWinners.length });
       setPlayers(players);
       setIsLoading(false);
-      if (roundWinners.includes(newSocket?.id)) {
-        setScore(prev => prev + (roundWinners.length === 2 ? 3 : 1));
-      }
     };
 
     newSocket.on('connect', handleConnect);
@@ -318,7 +316,6 @@ const App = () => {
         >
           <HeaderContent>
             <Logo>Helt Blank</Logo>
-            <Score>Score: <span>{score}</span></Score>
           </HeaderContent>
         </Header>
 
@@ -408,7 +405,6 @@ const App = () => {
                     >
                       <PlayerInfo>
                         <PlayerName>{player.name}</PlayerName>
-                        <PlayerScore>{player.score} point</PlayerScore>
                         {player.answer !== null && (
                           <PlayerAnswer>
                             {gameState === 'roundEnd' ? player.answer : 'Har svaret'}
