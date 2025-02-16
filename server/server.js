@@ -12,16 +12,14 @@ const io = require('socket.io')(http, {
   cors: {
     origin: ["https://noerpol.github.io", "http://localhost:3000"],
     methods: ["GET", "POST"],
-    credentials: true
-  }
+    credentials: true,
+    allowedHeaders: ["Content-Type"]
+  },
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  transports: ['websocket', 'polling'],
+  allowEIO3: true
 });
-const fs = require('fs');
-const path = require('path');
-const { Server } = require('socket.io');
-
-const wordsFile = 'words.json';
-const { words } = JSON.parse(fs.readFileSync(wordsFile, 'utf8'));
-console.log('Loaded words:', words);
 
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', 'https://noerpol.github.io');
@@ -30,6 +28,14 @@ app.use((req, res, next) => {
   res.header('Access-Control-Allow-Credentials', 'true');
   next();
 });
+
+const fs = require('fs');
+const path = require('path');
+const { Server } = require('socket.io');
+
+const wordsFile = 'words.json';
+const { words } = JSON.parse(fs.readFileSync(wordsFile, 'utf8'));
+console.log('Loaded words:', words);
 
 // Spil-sessioner pr. spilkode – holder styr på spillere, svar, brugte ord og aktuelt prompt
 const gameSessions = {};

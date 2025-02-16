@@ -231,16 +231,35 @@ function App() {
   }, [answer, gameCode, socket]);
 
   useEffect(() => {
+    if (socket?.id) return; // Undgå multiple connections
+
     const newSocket = io('https://helt-blank.onrender.com', {
       withCredentials: true,
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 5,
-      reconnectionDelay: 1000
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
+      autoConnect: true,
+      forceNew: true
     });
     
+    newSocket.on('connect', () => {
+      console.log('Connected to server');
+      setMessage('');
+    });
+
     newSocket.on('connect_error', (error) => {
       console.error('Connection Error:', error);
       setMessage('Forbindelsesfejl - prøver igen...');
+    });
+
+    newSocket.on('disconnect', (reason) => {
+      console.log('Disconnected:', reason);
+      if (reason === 'io server disconnect') {
+        // Server forcerede disconnect, forsøg reconnect
+        newSocket.connect();
+      }
     });
 
     newSocket.on('newPrompt', ({ prompt, players }) => {
@@ -275,7 +294,12 @@ function App() {
 
     setSocket(newSocket);
 
-    return () => newSocket.close();
+    return () => {
+      if (newSocket) {
+        newSocket.removeAllListeners();
+        newSocket.close();
+      }
+    };
   }, [socket?.id]);
 
   useEffect(() => {
