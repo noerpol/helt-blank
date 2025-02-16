@@ -324,28 +324,19 @@ function App() {
   useEffect(() => {
     let timer = null;
     
-    const startTimer = () => {
-      setTimeLeft(15);
-      timer = setInterval(() => {
-        setTimeLeft(prevTime => {
-          if (prevTime <= 1) {
-            clearInterval(timer);
-            if (socket?.id && players[socket.id]?.answer === null) {
-              handleSubmit({ preventDefault: () => {} });
-            }
-            return 0;
-          }
-          return prevTime - 1;
-        });
-      }, 1000);
-    };
-
     if (prompt && !winner && gameState === 'playing') {
-      startTimer();
+      // Start timer når en ny runde begynder
+      timer = setInterval(() => {
+        if (socket?.id && players[socket.id]?.answer === null) {
+          handleSubmit();
+        }
+      }, 15000);
     }
-
+    
     return () => {
-      if (timer) clearInterval(timer);
+      if (timer) {
+        clearInterval(timer);
+      }
     };
   }, [prompt, winner, gameState, socket?.id, players, handleSubmit]);
 
