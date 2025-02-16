@@ -336,7 +336,8 @@ function calculateRoundResults(gameCode) {
     // Game over
     io.to(gameCode).emit('gameOver', {
       winner: winner.name,
-      score: winner.score
+      score: winner.score,
+      players: game.players
     });
     games.delete(gameCode);
     aiPlayers.delete(gameCode);

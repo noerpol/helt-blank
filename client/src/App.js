@@ -277,7 +277,7 @@ const App = () => {
     socket.on('gameOver', ({ winner, score }) => {
       console.log('Game over:', { winner, score });
       setGameState('ended');
-      setWinner({ name: winner, score });
+      setWinner({ name: winner, score: score });
       setIsLoading(false);
     });
 
